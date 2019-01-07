@@ -1,0 +1,17 @@
+Binaries
+Build
+DerivedDataCache
+Intermediate
+Saved
+Content/EVteam/VFX/*
+Content/EVteam/audio/*
+.vscode
+.vs
+*.VC.db
+*.opensdf
+*.opendb
+*.sdf
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
