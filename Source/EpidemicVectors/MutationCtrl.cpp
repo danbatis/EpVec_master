@@ -134,3 +134,36 @@ AActor* AMutationCtrl::GetSeeingPawn()
 
 	return object ? Cast<AActor>(object) : nullptr;
 }
+void AMutationCtrl::SetNeedHideSpot(bool needSpot)
+{
+	//Set a new target to follow
+	if (BlackboardComp) BlackboardComp->SetValueAsBool(FName("needHideSpot"), needSpot);
+}
+void AMutationCtrl::SetNeedSeekSpot(bool needSpot)
+{
+	//Set a new target to follow
+	if (BlackboardComp) BlackboardComp->SetValueAsBool(FName("needSeekSpot"), needSpot);
+}
+void AMutationCtrl::SetNeedBestPath(bool needPath)
+{
+	//Set a new target to follow
+	if (BlackboardComp) BlackboardComp->SetValueAsBool(FName("needBestPath"), needPath);
+}
+bool AMutationCtrl::GetNeedHideSpot(){
+	if (BlackboardComp)
+		return BlackboardComp->GetValueAsBool(FName("needHideSpot"));
+	else
+		return true;
+}
+bool AMutationCtrl::GetNeedSeekSpot(){
+	if (BlackboardComp)
+		return BlackboardComp->GetValueAsBool(FName("needSeekSpot"));
+	else
+		return true;
+}
+bool AMutationCtrl::GetNeedBestPath(){
+	if (BlackboardComp)
+		return BlackboardComp->GetValueAsBool(FName("needBestPath"));
+	else
+		return true;
+}

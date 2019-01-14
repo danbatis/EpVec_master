@@ -32,6 +32,11 @@ AMutationChar::AMutationChar()
 void AMutationChar::BeginPlay()
 {
 	Super::BeginPlay();
+		
+	EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("MutationStates"), true);
+	RayParams.bTraceComplex = false;
+	RayParams.bReturnPhysicalMaterial = false;
+	//RayParams.AddIgnoredActor(this);
 	
 	if (PawnSensingComp)
 	{
@@ -68,16 +73,13 @@ void AMutationChar::BeginPlay()
 	rotationOffset = myMesh->GetRelativeTransform().GetRotation();
 
 	myController = Cast<AMutationCtrl>(GetController());
-	world = GetWorld();
+	myWorld = GetWorld();
 	mystate = MutationStates::patrol;
-
-	//to enable tests on the editor
-	myController->SetDesperate(life < desperateLifeLevel);
-	myController->SetCanFly(canFly);
-	myController->SetAirborne(startAirborne);
+		
+	//to enable tests on the editor	
 	flying = startAirborne;
-	
-	myGameState = Cast<AVectorsGameStateBase>(world->GetGameState());
+		
+	myGameState = Cast<AVectorsGameStateBase>(myWorld->GetGameState());
 
 	myCharMove = GetCharacterMovement();
 	if (startAirborne) {
@@ -88,21 +90,27 @@ void AMutationChar::BeginPlay()
 	}
 	myCharMove->MaxWalkSpeed = normalSpeed;
 	myCharMove->MaxAcceleration = normalAcel;
+
+	/*
+	myController->SetDesperate(life < desperateLifeLevel);
+	myController->SetCanFly(canFly);
+	myController->SetAirborne(startAirborne);
 	myController->SetGoalInAir(false);
 	myController->SetDonePath(true);
+	*/
+
 	if(patrolPoints.Num()>0)
 		targetPos = patrolPoints[0]->GetActorLocation();
-	myController->SetGoal(targetPos);
 	currentScanParams = investigateParams;
-
+	
 	/*
 	if (!patrolPoints.IsValidIndex(0)) {
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("[Mutation %s] have no patrol points!!!!"), *GetName()));
-		UGameplayStatics::SetGlobalTimeDilation(world, .2f);
+		UGameplayStatics::SetGlobalTimeDilation(myWorld, .2f);
 	}
 	if (&attackList[0] == nullptr) {
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("[Mutation %s] have no attack animation list!!!!"), *GetName()));
-		UGameplayStatics::SetGlobalTimeDilation(world, .2f);
+		UGameplayStatics::SetGlobalTimeDilation(myWorld, .2f);
 	}
 	*/
 	
@@ -114,8 +122,99 @@ void AMutationChar::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 		
 	mytime += DeltaTime;
+	if (searchTimer > 0.0f) {
+		searchTimer -= DeltaTime;
+		if (searchTimer <= 0.0f) {
+			searchTimer = 0.0f;
+			if(mystate == MutationStates::pursuit) {
+				UE_LOG(LogTemp, Warning, TEXT("[mutation] gave up pursuit, going back to patrol"));
+				mystate = MutationStates::patrol;
+				targetPos = patrolPoints[nextPatrol_i]->GetActorLocation();
+				distToTarget = FVector::Distance(myLoc, targetPos);
+				currentScanParams = patrolPoints[nextPatrol_i]->scanParams;
+			}
+		}
+	}
+	if (debugInfo) {
+		APlayerController* fpPlayer = UGameplayStatics::GetPlayerController(myWorld, 0);
+		if (fpPlayer->WasInputKeyJustPressed(EKeys::H)) {
+			myWorld->GetTimerManager().ClearTimer(timerHandle);
+			heightRollMid = false;
+			GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::ClearHeightRoll, 0.3f, false);
+			//do a height Roll
+			mystate = MutationStates::heightRoll;
+			myCharMove->bOrientRotationToMovement = false;
+			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("[Mutation %s] doing height roll"), *GetName()));
+		}
+		FString meuestado = EnumPtr->GetNameByValue((int64)mystate).ToString();
+		FString moveRes;
+		if (movingRes == EPathFollowingRequestResult::RequestSuccessful) {
+			//UE_LOG(LogTemp, Warning, TEXT("[mutation] moving success"));
+			moveRes = "move success";
+		}
+		else {
+			if (movingRes == EPathFollowingRequestResult::Failed) {
+				//UE_LOG(LogTemp, Warning, TEXT("[mutation] moving fail")); 
+				moveRes = "move fail";
+			}
+			else {
+				//UE_LOG(LogTemp, Warning, TEXT("[mutation] moving already at goal"));
+				moveRes = "move at goal";
+			}
+		}
+		GEngine->AddOnScreenDebugMessage(-1, 0.01f, FColor::Green, FString::Printf(TEXT("[Mutation %s] %s life: %f %s"), *GetName(), *meuestado, life, *moveRes));
+		//DrawDebugSphere(myWorld, GetActorLocation(), strikeDistance, 12, FColor::Yellow, true, 0.1f, 0, 1.0);
+		//DrawDebugSphere(myWorld, GetActorLocation(), 2*strikeDistance, 12, FColor::Yellow, true, 0.1f, 0, 1.0);
+		//DrawDebugSphere(myWorld, GetActorLocation(), fightRange, 12, FColor::Green, true, 0.1f, 0, 1.0);
 
-	inAir = GetMovementComponent()->IsFalling();
+		if (fpPlayer->WasInputKeyJustPressed(EKeys::I)) {
+			UE_LOG(LogTemp, Warning, TEXT("[mutation] became desperate!"));
+			mystate = MutationStates::escape;
+			myController->SetNeedHideSpot(true);
+			waitEQS = true;
+		}
+
+		if (fpPlayer->WasInputKeyJustPressed(EKeys::J)) {
+			UE_LOG(LogTemp, Warning, TEXT("[mutation] getting a new hide spot"));
+			myController->SetNeedHideSpot(true);
+			waitEQS = true;
+		}
+		if (fpPlayer->WasInputKeyJustPressed(EKeys::K)) {
+			UE_LOG(LogTemp, Warning, TEXT("[mutation] getting a new seek spot"));
+			myController->SetNeedSeekSpot(true);
+			waitEQS = true;
+		}
+		if (fpPlayer->WasInputKeyJustPressed(EKeys::L)) {
+			UE_LOG(LogTemp, Warning, TEXT("[mutation] getting a new unobstructed spot"));
+
+			UE_LOG(LogTemp, Warning, TEXT("blackboard updated with target position"));
+			myController->SetGoal(targetPos);
+
+			myController->SetNeedBestPath(true);
+			waitEQS = true;
+		}
+
+		DrawDebugLine(myWorld, GetActorLocation(), targetPos, FColor::Green, true, 0.1f, 0, 5.0);
+		FVector algozDir = myLoc - targetPos;
+		algozDir.Normalize();
+		DrawDebugLine(myWorld, targetPos, targetPos + moveTolerance * algozDir, FColor::Black, true, 0.1f, 0, 5.0);
+	}
+
+	if (waitEQS) {
+		UE_LOG(LogTemp, Warning, TEXT("[mutation] waiting for EQS"));
+		if (!myController->GetNeedHideSpot() && !myController->GetNeedSeekSpot() && !myController->GetNeedBestPath()) {
+			targetPos = myController->GetGoal();
+			myController->RestartBT();
+			distToTarget = FVector::Distance(myLoc, targetPos);
+			DrawDebugLine(myWorld, targetPos, targetPos + 1000.0f*FVector::UpVector, FColor::Black, true, 1.1f, 0, 5.0);
+			if (debugInfo)
+				DrawDebugLine(myWorld, myLoc, myLoc + 1000.0f*FVector::UpVector, FColor::Magenta, true, 1.1f, 0, 5.0);
+			waitEQS = false;
+			StartTraverse();
+		}
+	}
+
+	inAir = GetMovementComponent()->IsFalling() || flying;
 	if(!inAir && mystate == MutationStates::kdFlight && recoilPortion == 0.0f){
 		if (!kdrecovering) {
 			kdrecovering = true;
@@ -126,9 +225,8 @@ void AMutationChar::Tick(float DeltaTime)
 			float hitgroundTime = 0.5f;
 			GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedKDRise, hitgroundTime, false);
 		}
-	}
-	myController->SetAirborne(inAir||flying);
-	myAnimBP->inAir = inAir || flying;
+	}	
+	myAnimBP->inAir = inAir;
 	/*
 	if (inAir) {
 		UE_LOG(LogTemp, Warning, TEXT("mutation falling"));
@@ -138,25 +236,199 @@ void AMutationChar::Tick(float DeltaTime)
 	}
 	*/
 	
-	if (debugInfo) {
-		APlayerController* player = UGameplayStatics::GetPlayerController(world, 0);
-		if (player->WasInputKeyJustPressed(EKeys::H)) {
-			myController->StopBT();
-			world->GetTimerManager().ClearTimer(timerHandle);
-			heightRollMid = false;
-			GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::ClearHeightRoll, 0.3f, false);
-			//do a height Roll
-			mystate = MutationStates::heightRoll;
-			myCharMove->bOrientRotationToMovement = false;
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("[Mutation %s] doing height roll"), *GetName()));
-		}
-		GEngine->AddOnScreenDebugMessage(-1, 0.01f, FColor::Green, FString::Printf(TEXT("[Mutation %s] state: %d life: %f"), *GetName(),(uint8)mystate,life));
-		//DrawDebugSphere(world, GetActorLocation(), strikeDistance, 12, FColor::Yellow, true, 0.1f, 0, 1.0);
-		//DrawDebugSphere(world, GetActorLocation(), 2*strikeDistance, 12, FColor::Yellow, true, 0.1f, 0, 1.0);
-		//DrawDebugSphere(world, GetActorLocation(), fightRange, 12, FColor::Green, true, 0.1f, 0, 1.0);
-		DrawDebugLine(world, GetActorLocation(), targetPos, FColor(0, 255, 0), true, 0.1f, 0, 5.0);
-	}
+	
+	/*
+	if (targetVisible) {
+		RayParams.AddIgnoredActor(this);		
+		targetPos = myTarget->GetActorLocation();
+		distToTarget = FVector::Distance(myLoc, targetPos);
+		if (myWorld->LineTraceSingleByChannel(hitres, myLoc, targetPos, ECC_MAX, RayParams)) {
+			if (debugInfo) {
+				DrawDebugLine(myWorld, myLoc, targetPos, FColor::Red, true, 1.1f, 0, 5.0);
+			}
+			AMyPlayerCharacter * playerChar = Cast<AMyPlayerCharacter>(hitres.Actor.Get());
+			if (playerChar) {
+				//target still visible
+				//targetVisible = true;
+				if (distToTarget > fightRange) {
+					GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("needs to get closer to %s"), *hitres.Actor.Get()->GetName()));
+					//fly straight
+					flying = true;
+					myCharMove->MovementMode = MOVE_Flying;
+					//AddMovementInput(targetPos - myLoc, 1.0f);
+					movingRes = myController->MoveToLocation(targetPos, moveTolerance, true, false, false, true, 0, true);
+					if (movingRes == EPathFollowingRequestResult::RequestSuccessful) {
+						UE_LOG(LogTemp, Warning, TEXT("[mutation] moving success"));
+					}
+					else {
+						if (movingRes == EPathFollowingRequestResult::Failed) { UE_LOG(LogTemp, Warning, TEXT("[mutation] moving fail")); }
+						else {
+							UE_LOG(LogTemp, Warning, TEXT("[mutation] moving already at goal"));
+						}
+					}
+				}
+				else {
+					GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Green, FString::Printf(TEXT("time to fight %s"), *hitres.Actor.Get()->GetName()));
+					MutationFight(DeltaTime);
+				}
+			}
+			else{
+				//target no longer visible!
+				targetVisible = false;
+				//turn sensing back on
+				PawnSensingComp->SetActive(true);
+				PawnSensingComp->SetSensingUpdatesEnabled(true);
+				PawnSensingComp->bSeePawns = true;
+				PawnSensingComp->bHearNoises = true;
 
+				//start the search
+				DrawDebugLine(myWorld, targetPos, targetPos + 1000.0f*FVector::UpVector, FColor::Yellow, true, 1.0f, 0, 5.0);
+				waitEQS = false;
+				mystate = MutationStates::pursuit;
+			}
+		}
+		else {
+			//raycast failed to see anything
+			DrawDebugLine(myWorld, myLoc, myLoc+1000.0f*FVector::UpVector, FColor::Red, true, 1.1f, 0, 5.0);
+			targetVisible = false;
+		}	
+	}
+	else {
+		//target not visible
+		DrawDebugSphere(myWorld, myLoc, fightRange, 12, FColor::Red, true, 0.1f, 0, 5.0);
+
+		if (waitEQS) {
+			UE_LOG(LogTemp, Warning, TEXT("[mutation] waiting for EQS"));
+			if (!myController->GetNeedHideSpot() && !myController->GetNeedSeekSpot() && !myController->GetNeedBestPath()){
+				targetPos = myController->GetGoal();
+				distToTarget = FVector::Distance(myLoc, targetPos);
+				DrawDebugLine(myWorld, targetPos, targetPos + 1000.0f*FVector::UpVector, FColor::Black, true, 1.1f, 0, 5.0);
+				waitEQS = false;
+				askedBestPath++;
+			}
+		}
+		else {
+			myCharMove->bOrientRotationToMovement = true;
+			//check if arrived at destination			
+			if (distToTarget <= moveTolerance) {
+				askedBestPath = 0;
+				myController->StopMovement();
+				if (mystate == MutationStates::pursuit) {
+					//arrived at last known location, ask for a new hiding spot
+					myController->SetNeedSeekSpot(true);
+					myController->SetGoal(targetPos);
+					UE_LOG(LogTemp, Warning, TEXT("[mutation] asked for a seek spot"));
+					waitEQS = true;
+					if (searchTimer == 0.0f)
+						searchTimer = blindPursuitTime;
+				}
+				if (mystate == MutationStates::patrol) {
+					//go to next patrol point
+					NextPatrolPoint();
+					targetPos = patrolPoints[nextPatrol_i]->GetActorLocation();
+					distToTarget = FVector::Distance(myLoc, targetPos);
+					currentScanParams = patrolPoints[nextPatrol_i]->scanParams;
+				}
+			}
+			else {
+				//keep searching
+				//verify if line of sight is clear
+				if (canFly) {
+					RayParams.AddIgnoredActor(this);
+					if (myWorld->LineTraceSingleByChannel(hitres, myLoc, targetPos, ECC_MAX, RayParams)) {
+						//check if detected object is the player
+						AMyPlayerCharacter * playerChar = Cast<AMyPlayerCharacter>(hitres.Actor.Get());
+						if (playerChar) {
+							//fly straight
+							//UE_LOG(LogTemp, Warning, TEXT("[mutation] flying straight to player"));
+							flying = true;
+							myCharMove->MovementMode = MOVE_Flying;
+							//AddMovementInput(targetPos - myLoc, 1.0f);
+							movingRes = myController->MoveToLocation(targetPos, moveTolerance, true, false, false, true, 0, true);
+							if (movingRes == EPathFollowingRequestResult::RequestSuccessful) {
+								UE_LOG(LogTemp, Warning, TEXT("[mutation] moving success"));
+							}
+							else {
+								if (movingRes == EPathFollowingRequestResult::Failed) { UE_LOG(LogTemp, Warning, TEXT("[mutation] moving fail")); }
+								else {
+									UE_LOG(LogTemp, Warning, TEXT("[mutation] moving already at goal"));
+								}
+							}
+						}
+						else {
+							//ask for a best path point a number of times
+							if (askedBestPath <= 4) {
+								myController->SetGoal(targetPos);
+								myController->SetNeedBestPath(true);
+								waitEQS = true;
+								UE_LOG(LogTemp, Warning, TEXT("[mutation] asked for a best path"));
+							}
+							else {
+								//choose a random direction to try to have a clear line of sight
+								UE_LOG(LogTemp, Warning, TEXT("[mutation] choosing random dir"));
+								flying = true;
+								myCharMove->MovementMode = MOVE_Flying;
+								FVector randDest = targetPos + FMath::RandRange(0.0f, 500.0f)*FVector::RightVector + FMath::RandRange(0.0f, 500.0f)*FVector::ForwardVector;
+								DrawDebugLine(myWorld, randDest, randDest + 1000.0f*FVector::UpVector, FColor::Magenta, true, 1.1f, 0, 5.0);
+								movingRes = myController->MoveToLocation(randDest, moveTolerance, true, false, false, true, 0, true);
+								//AddMovementInput(randDest-myLoc, 1.0f);
+								if (movingRes == EPathFollowingRequestResult::RequestSuccessful) {
+									UE_LOG(LogTemp, Warning, TEXT("[mutation] moving success"));
+								}
+								else {
+									if (movingRes == EPathFollowingRequestResult::Failed) { UE_LOG(LogTemp, Warning, TEXT("[mutation] moving fail")); }
+									else {
+										UE_LOG(LogTemp, Warning, TEXT("[mutation] moving already at goal"));
+									}
+								}
+							}
+						}						
+					}
+					else {
+						//fly straight
+						//UE_LOG(LogTemp, Warning, TEXT("[mutation] flying straight to %d"), nextPatrol_i);
+						flying = true;
+						myCharMove->MovementMode = MOVE_Flying;
+						//AddMovementInput(targetPos - myLoc, 1.0f);
+						movingRes = myController->MoveToLocation(targetPos, moveTolerance, true, false, false, true, 0, true);
+						if (movingRes == EPathFollowingRequestResult::RequestSuccessful) {
+							UE_LOG(LogTemp, Warning, TEXT("[mutation] moving success"));
+						}
+						else {
+							if (movingRes == EPathFollowingRequestResult::Failed) { UE_LOG(LogTemp, Warning, TEXT("[mutation] moving fail")); }
+							else {
+								UE_LOG(LogTemp, Warning, TEXT("[mutation] moving already at goal"));
+							}
+						}
+						//slow down						
+						if (distToTarget <= flyStopFactor * moveTolerance) {
+
+							float deacelRate = pow((distToTarget - moveTolerance) / (flyStopFactor*moveTolerance - moveTolerance), 0.5f);
+							myCharMove->Velocity *= deacelRate;
+							if (debugInfo)
+								UE_LOG(LogTemp, Warning, TEXT("[mutation] deacel %f"), deacelRate);
+						}						
+					}
+				}
+				else {					
+					myCharMove->MovementMode = MOVE_Walking;
+					flying = false;
+					movingRes = myController->MoveToLocation(targetPos, moveTolerance, true, true, true, true, 0, true);
+					if (movingRes == EPathFollowingRequestResult::RequestSuccessful) {
+						UE_LOG(LogTemp, Warning, TEXT("[mutation] moving success"));
+					}
+					else {
+						if (movingRes == EPathFollowingRequestResult::Failed) { UE_LOG(LogTemp, Warning, TEXT("[mutation] moving fail")); }
+						else {
+							UE_LOG(LogTemp, Warning, TEXT("[mutation] moving already at goal"));
+						}
+					}
+				}
+			}
+		}
+	}
+	*/
+	
 	switch(mystate){
 		case MutationStates::idle:
 			targetPos = myTarget->GetActorLocation();
@@ -247,16 +519,13 @@ void AMutationChar::Tick(float DeltaTime)
 			break;
 	}
 	
-
+	/*
 	if(targetSensedTime > 0 && mytime - targetSensedTime > blindPursuitTime){
-		
-		myController->SetTargetLocated(false);
-		myController->SetBlindSearch(false);
 		targetSensedTime = 0.0f;
 		donePath = true;
-		//myController->SetDonePath(true);
 		ArrivedAtGoal();		
 	}
+	*/
 }
 
 // Called to bind functionality to input
@@ -272,17 +541,35 @@ void AMutationChar::OnHearNoise(APawn* PawnInstigator, const FVector& Location, 
 	{
 		myTarget = Cast<AMyPlayerCharacter>(PawnInstigator);
 		if (myTarget && mystate < MutationStates::suffering) {
-			//Updates our target based on what we've heard.
+			
 			UE_LOG(LogTemp, Warning, TEXT("[Mutation] target heard."));
 
-			myController->SetTargetLocated(true);
-			timeHeard = mytime;
-			
-			targetPos = PawnInstigator->GetActorLocation();
+			if (mystate == MutationStates::escape) {
+				myController->SetNeedHideSpot(true);
+				waitEQS = true;
+			}
+			else {
+				//Updates our target based on what we've heard.
+				timeHeard = mytime;
+				targetPos = PawnInstigator->GetActorLocation();
+				targetInAir = myTarget->inAir;
+				distToTarget = FVector::Distance(myLoc, targetPos);
+				PawnSensingComp->SetActive(true);
+				PawnSensingComp->SetSensingUpdatesEnabled(true);
+				PawnSensingComp->bSeePawns = true;
+				PawnSensingComp->bHearNoises = true;
+				mystate = MutationStates::pursuit;
+				currentScanParams = investigateParams;
+				searchTimer = blindPursuitTime;
+				StartTraverse();
+				CancelEQS();
+			}
+			/*
 			myController->SetGoal(targetPos);
-			//goal is in the air?
+			myController->SetTargetLocated(true);
 			myController->SetGoalInAir(myTarget->inAir);
-			//CheckRange();
+			
+			
 			flying = myTarget->inAir || inAir;
 			
 			distToTarget = FVector::Distance(GetActorLocation(), targetPos);
@@ -301,6 +588,7 @@ void AMutationChar::OnHearNoise(APawn* PawnInstigator, const FVector& Location, 
 			else { 
 				StartTraverse(); 
 			}
+			*/
 		}
 	}
 }
@@ -313,19 +601,36 @@ void AMutationChar::OnSeenTarget(APawn* PawnInstigator)
 		myTarget = Cast<AMyPlayerCharacter>(PawnInstigator);
 		if (myTarget && mystate < MutationStates::suffering) {
 			UE_LOG(LogTemp, Warning, TEXT("[Mutation] target seen!."));
-			//Updates our target based on what we've heard.
+			
+			if (mystate == MutationStates::escape) {
+				myController->SetNeedHideSpot(true);
+				waitEQS = true;
+			}
+			else {
+				//Updates our target based on what we've heard.
+				targetVisible = true;
+				timeSeen = mytime;
+				targetPos = PawnInstigator->GetActorLocation();
+				targetInAir = myTarget->inAir;
+				distToTarget = FVector::Distance(myLoc, targetPos);
+				PawnSensingComp->SetActive(false);
+				PawnSensingComp->SetSensingUpdatesEnabled(false);
+				PawnSensingComp->bSeePawns = false;
+				PawnSensingComp->bHearNoises = false;
+				mystate = MutationStates::pursuit;
+				currentScanParams = investigateParams;
+				searchTimer = blindPursuitTime;
+				StartTraverse();
+				CancelEQS();
+				if(debugInfo)
+					DrawDebugSphere(myWorld, targetPos, moveTolerance, 12, FColor::Green, true, 1.0f, 0, 5.0);
+			}
+			/*
 			myController->SetTargetLocated(true);
-			//here the player was not heard, but the timeHeard is used to reset the location...
-			timeHeard = mytime;
-			targetVisible = true;
 			myController->SetTargetVisible(targetVisible);
-			timeSeen = mytime;
-
-			targetPos = PawnInstigator->GetActorLocation();
-			//DrawDebugSphere(world, targetPos, moveTolerance, 12, FColor::Green, true, 5.0f, 0, 5.0);
 			myController->SetGoal(targetPos);
 			myController->SetGoalInAir(myTarget->inAir);
-			//CheckRange();
+			
 			flying = myTarget->inAir || inAir;
 			
 			distToTarget = FVector::Distance(GetActorLocation(), targetPos);
@@ -344,6 +649,7 @@ void AMutationChar::OnSeenTarget(APawn* PawnInstigator)
 			else {
 				StartTraverse();
 			}
+			*/
 		}
 	}
 }
@@ -432,13 +738,12 @@ void AMutationChar::NextPatrolPoint()
 		}
 	}
 	//extract information from the TargetPoint MutationWaypoint
-	myController->SetGoalInAir(false);
 	UE_LOG(LogTemp, Warning, TEXT("Updated next patrol point to: %d"), nextPatrol_i);
 }
 void AMutationChar::Navigating(float DeltaTime){
 	
-	FVector myLoc = GetActorLocation();
-	FVector forthVec = GetActorForwardVector();
+	myLoc = GetActorLocation();
+	forthVec = GetActorForwardVector();
 	FVector targetDir = targetPos - myLoc;
 	targetDir.Normalize();	
 
@@ -470,10 +775,10 @@ void AMutationChar::Navigating(float DeltaTime){
 		if (debugInfo) 
 			GEngine->AddOnScreenDebugMessage(-1, 0.2f, FColor::Yellow, TEXT("[Mutation] scanning environment"));
 		if (mytime - startMoveTimer < currentScanParams.timeToScan && startMoveTimer != 0.0f){
-			FVector myLoc = GetActorLocation();
-			FVector forthVec = GetActorForwardVector();
-			DrawDebugLine(world, myLoc, myLoc + forthVec * 100.0f, FColor::Black, true, 0.1f, 0, 5.0);
-			DrawDebugLine(world, myLoc, myLoc + targetDir * 100.0f, FColor::Green, true, 0.1f, 0, 5.0);
+			myLoc = GetActorLocation();
+			forthVec = GetActorForwardVector();
+			DrawDebugLine(myWorld, myLoc, myLoc + forthVec * 100.0f, FColor::Black, true, 0.1f, 0, 5.0);
+			DrawDebugLine(myWorld, myLoc, myLoc + targetDir * 100.0f, FColor::Green, true, 0.1f, 0, 5.0);
 			//rotate scanning area
 			ScanRotation = FRotator(0.0f, scanDir*scanTurnSpeed*DeltaTime, 0.0f);
 			QuatScanRotation = FQuat(ScanRotation);
@@ -520,85 +825,133 @@ void AMutationChar::Navigating(float DeltaTime){
 		if (mytime - startMoveTimer < currentScanParams.timeBeforeTraverse && startMoveTimer != 0.0f) {}
 		else {
 			//if (debugInfo)				
-				//DrawDebugSphere(world, targetPos, moveTolerance, 12, FColor::Green, true, 5.0f, 0, 5.0);
+				//DrawDebugSphere(myWorld, targetPos, moveTolerance, 12, FColor::Green, true, 5.0f, 0, 5.0);
 			
 			startMoveTimer = 0.0f;
-			StartTraverse();
+
+			if (mystate == MutationStates::patrol) {
+				//go to next patrol point
+				NextPatrolPoint();
+				targetPos = patrolPoints[nextPatrol_i]->GetActorLocation();
+				targetInAir = patrolPoints[nextPatrol_i]->airGoal;
+				distToTarget = FVector::Distance(myLoc, targetPos);
+				currentScanParams = patrolPoints[nextPatrol_i]->scanParams;
+				StartTraverse();
+			}
+			if (mystate == MutationStates::pursuit) {
+				//arrived at last known location, ask for a new hiding spot
+				myController->SetNeedSeekSpot(true);
+				UE_LOG(LogTemp, Warning, TEXT("[mutation] asked for a seek spot"));
+				waitEQS = true;
+				if (!canFly || !inAir) {
+					if (searchTimer == 0.0f)
+						searchTimer = blindPursuitTime;
+				}
+				else {
+					searchTimer = blindPursuitTime;
+				}
+			}			
 		}
 		break;
 	case MoveModes::traversing:
-		if (!donePath) {
-			myCharMove->bOrientRotationToMovement = true;
-			if (debugInfo) {
-				GEngine->AddOnScreenDebugMessage(-1, 0.2f, FColor::Yellow, TEXT("[Mutation] traversing"));
-				//UE_LOG(LogTemp, Warning, TEXT("[Mutation] traversing"));
+		//traverse AI
+		//myLoc = GetActorLocation();
+		distToTarget = FVector::Distance(myLoc, targetPos);
+		if (distToTarget <= moveTolerance) {
+			askedBestPath = 0;
+			myController->StopMovement();
+			moveMode = waitOldHead;
+			if (mystate == MutationStates::patrol) {
+				UE_LOG(LogTemp, Warning, TEXT("arrived at point: %d"), nextPatrol_i);
 			}
-
-			distToTarget = FVector::Distance(GetActorLocation(), targetPos);
-			if (distToTarget <= moveTolerance){
-				if (mystate == MutationStates::patrol) {
-					UE_LOG(LogTemp, Warning, TEXT("arrived at point: %d"), nextPatrol_i);
-					NextPatrolPoint();
-				}
-				if(myTarget)
-					DecideWhichSideFacesPlayer();
-
-				if (!reachedGoal) {
-					myController->SetBlindSearch(true);
-					targetSensedTime = mytime;
-					myController->SetTargetLocated(false);
-				}
-				reachedGoal = true;
-
-				//to stop drifting when fighting
-				myCharMove->StopActiveMovement();
-				myController->StopMovement();
-				myCharMove->Velocity *= 0;
-				donePath = true;
-				ArrivedAtGoal();
+			if (mystate == MutationStates::escape) {
+				//arrived at last known hide spot, find another one
+				myController->SetNeedHideSpot(true);
+				UE_LOG(LogTemp, Warning, TEXT("[mutation] asked for a hidden spot"));
+				waitEQS = true;
 			}
-			else {
-				if (flying) {
-					AddMovementInput(targetPos - GetActorLocation(), 1.0f);
-					//slow down
-					if (distToTarget <= flyStopFactor * moveTolerance) {
-
-						float deacelRate = pow((distToTarget - moveTolerance) / (flyStopFactor*moveTolerance - moveTolerance), 0.5f);
-						myCharMove->Velocity *= deacelRate;
-						if(debugInfo)
-							UE_LOG(LogTemp, Warning, TEXT("[mutation] deacel %f"), deacelRate);
+		}
+		else {
+			//hitres = FHitResult(ForceInit);
+			if (myWorld->LineTraceSingleByChannel(hitres, myLoc, targetPos, ECC_Camera, RayParams)) {
+				if (debugInfo) {
+					DrawDebugLine(myWorld, myLoc, targetPos, FColor::Green, true, 1.1f, 0, 5.0);
+				}
+				AMyPlayerCharacter * playerChar = Cast<AMyPlayerCharacter>(hitres.GetActor());
+				if (playerChar) {
+					targetVisible = true;
+					if (distToTarget < fightRange) {
+						MutationFight(DeltaTime);
 					}
-					float currDist = FVector::Distance(GetActorLocation(), targetPos);
-					if (oldTargetDist >= currDist) {
-						//signal something might be wrong
-						if (debugInfo) {
-							DrawDebugSphere(world, targetPos, 2 * strikeDistance, 12, FColor::Red, true, 5.0f, 0, 1.0);
-						}
-						//Investigate();
+					else {
+						movingRes = myController->MoveToLocation(targetPos, 0.5f*moveTolerance, false, !canFly, !canFly, true, 0, true);
 					}
-					oldTargetDist = currDist;
 				}
 				else {
-					float currDist = FVector::Distance(GetActorLocation(), targetPos);
-					if (oldTargetDist >= currDist) {
-						//signal something might be wrong
-						if (debugInfo) {
-							DrawDebugSphere(world, targetPos, 2 * strikeDistance, 12, FColor::Red, true, 5.0f, 0, 1.0);
-						}
-						//Investigate();
-						//newgoalset = true;
-						//StartTraverse();
+					//target no longer visible!
+					targetVisible = false;
+					//turn sensing back on
+					PawnSensingComp->SetActive(true);
+					PawnSensingComp->SetSensingUpdatesEnabled(true);
+					PawnSensingComp->bSeePawns = true;
+					PawnSensingComp->bHearNoises = true;
+
+					//when obstructed by another mutation, we consider it is not obstructed
+					AMutationChar * otherMut = Cast<AMutationChar>(hitres.GetActor());
+					if (otherMut) {
+						//you forgot to set this mutation to be ignored in its trace channel!!!!
+						GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, FString::Printf(TEXT("Mutation: %s is NOT being ignored on the path finding AI, fix its Mutations trace response!"), *hitres.Actor.Get()->GetName()));
 					}
-					oldTargetDist = currDist;
+					else {
+						//obstructed by static object most likely... it might be a dynamic object still
+						if (canFly) {
+							if (inAir) {
+								if (askedBestPath <= 4) {
+									//use EQS to find best path
+									UE_LOG(LogTemp, Warning, TEXT("[mutation] getting a new unobstructed spot"));
+									myController->SetGoal(targetPos);
+									askedBestPath++;
+									myController->SetNeedBestPath(true);
+									waitEQS = true;
+								}
+								else {
+									//random direction to clear obstruction
+									UE_LOG(LogTemp, Warning, TEXT("[mutation] choosing random dir"));
+									flying = true;
+									myCharMove->MovementMode = MOVE_Flying;
+									FVector randDest = targetPos + FMath::RandRange(0.0f, 500.0f)*FVector::RightVector + FMath::RandRange(0.0f, 500.0f)*FVector::ForwardVector;
+									DrawDebugLine(myWorld, randDest, randDest + 1000.0f*FVector::UpVector, FColor::Magenta, true, 1.1f, 0, 5.0);
+									movingRes = myController->MoveToLocation(randDest, 0.5f*moveTolerance, false, false, false, true, 0, true);
+								}
+							}
+							else {
+								movingRes = myController->MoveToLocation(targetPos, 0.5f*moveTolerance, false, true, true, true, 0, true);
+							}
+						}
+						else {
+							movingRes = myController->MoveToLocation(targetPos, 0.5f*moveTolerance, false, !canFly, !canFly, true, 0, true);
+						}
+					}
 				}
+			}
+			else {
+				//no obstruction at all
+				movingRes = myController->MoveToLocation(targetPos, 0.5f*moveTolerance, false, !canFly, !canFly, true, 0, true);
+
+				//target no longer visible!
+				targetVisible = false;
+				//turn sensing back on
+				PawnSensingComp->SetActive(true);
+				PawnSensingComp->SetSensingUpdatesEnabled(true);
+				PawnSensingComp->bSeePawns = true;
+				PawnSensingComp->bHearNoises = true;
 			}
 		}
 		break;
 	}
 }
 void AMutationChar::StartTraverse() {
-	moveMode = MoveModes::traversing;
-	
+	moveMode = MoveModes::traversing;	
 	
 	//reset speeds that were changed on the SpiralAttack
 	myCharMove->MaxWalkSpeed = normalSpeed;
@@ -607,44 +960,16 @@ void AMutationChar::StartTraverse() {
 	advanceAtk = 0.0f;
 	myCharMove->Velocity *= 0.0f;
 
-
+	/*
 	PawnSensingComp->SetActive(true);
 	PawnSensingComp->SetSensingUpdatesEnabled(true);
 	PawnSensingComp->bSeePawns = true;
 	PawnSensingComp->bHearNoises = true;
+	*/
 	
 	//oldTargetDist = -1.0f;
 	startMoveTimer = mytime;
 	UE_LOG(LogTemp, Warning, TEXT("[mutation %s] Starting traverse"),*GetName());
-
-	if (!flying) {
-		UE_LOG(LogTemp, Warning, TEXT("walking"));
-		EPathFollowingRequestResult::Type movingRes;
-		movingRes = myController->MoveToLocation(targetPos, 5.0f, true, true, true, true, 0, true);
-		if (movingRes != EPathFollowingRequestResult::RequestSuccessful) {
-			//myController->SetDonePath(true);
-			ArrivedAtGoal();
-		}
-	}
-	else {
-		UE_LOG(LogTemp, Warning, TEXT("flying"));
-		//check if path is obstructed, otherwise find the projection
-		RayParams.AddIgnoredActor(this);
-		targetVisible = !world->LineTraceSingleByChannel(hitres, GetActorLocation(), targetPos, ECC_Pawn, RayParams);
-		if(nextPatrol_i<patrolPoints.Num())
-		DrawDebugLine(world, GetActorLocation(), patrolPoints[nextPatrol_i]->GetActorLocation(), FColor(0, 0, 255), true, -1, 0, 5.0);
-
-		myController->SetTargetVisible(targetVisible);
-		if (!targetVisible) {
-			if(debugInfo)
-				UE_LOG(LogTemp, Warning, TEXT("[mutation] straight flight obstructed, finding another path"));
-			//myController->SetGoalInAir(false);
-			//myController->SetGoal(targetPos);
-			
-			//myController->SetDonePath(true);
-			ArrivedAtGoal();
-		}
-	}
 }
 void AMutationChar::ArrivedAtGoal()
 {
@@ -657,7 +982,6 @@ void AMutationChar::ArrivedAtGoal()
 
 	//check if on the navigation mesh to find out if it is grounded
 	if (flying) {
-		EPathFollowingRequestResult::Type movingRes;
 		movingRes = myController->MoveToLocation(targetPos, 5.0f, true, true, true, true, 0, true);
 		if (movingRes == EPathFollowingRequestResult::RequestSuccessful || movingRes == EPathFollowingRequestResult::AlreadyAtGoal) {
 			flying = false;
@@ -704,7 +1028,7 @@ void AMutationChar::NewGoal(bool Flying) {
 }
 
 void AMutationChar::MutationFight(float DeltaTime) {
-	//UE_LOG(LogTemp, Warning, TEXT("[task] Mutation %s fighting"), *GetName());
+	UE_LOG(LogTemp, Warning, TEXT("[Mutation %s fighting"), *GetName());
 
 	//reset speeds that were changed on the SpiralAttack
 	myCharMove->MaxWalkSpeed = normalSpeed;
@@ -719,32 +1043,30 @@ void AMutationChar::MutationFight(float DeltaTime) {
 	FVector targetDir = targetPos - mypos;
 	targetDir.Normalize();
 	float facingAngle = FMath::RadiansToDegrees(FMath::Acos(targetDir.CosineAngle2D(GetActorForwardVector())));
-	if (facingAngle < faceTolerance) {
-		if(CheckRange()){
-			if (distToTarget < strikeDistance) {
-				//height roll
-				if(mypos.Z > targetPos.Z + rollTolHeight){
-					CombatAction(3);
-				}
-				else{
-					CombatAction(0);
-				}
+	if (facingAngle < faceTolerance) {		
+		if (distToTarget < strikeDistance) {
+			//height roll
+			if(mypos.Z > targetPos.Z + rollTolHeight){
+				CombatAction(3);
+			}
+			else{
+				CombatAction(0);
+			}
+		}
+		else {
+			if (distToTarget < 2 * strikeDistance) {
+				CombatAction(1);
 			}
 			else {
-				if (distToTarget < 2 * strikeDistance) {
-					CombatAction(1);
-				}
-				else {
-					CombatAction(2);
-				}
+				CombatAction(2);
 			}
-		}		
+		}			
 	}
 	else {
 		UE_LOG(LogTemp, Warning, TEXT("Turning to face player"));
 		//rotate to face the player
-		FRotator NewRotation = FRotator(0.0f, rotateToFaceTargetDir*faceTargetRotSpeed*DeltaTime, 0.0f);
-		FQuat QuatRotation = FQuat(NewRotation);
+		NewRotation = FRotator(0.0f, rotateToFaceTargetDir*faceTargetRotSpeed*DeltaTime, 0.0f);
+		QuatRotation = FQuat(NewRotation);
 		AddActorLocalRotation(QuatRotation, false, 0, ETeleportType::None);
 	}	
 }
@@ -754,7 +1076,7 @@ void AMutationChar::CombatAction(int near_i){
 	myCharMove->StopActiveMovement();
 	myController->StopMovement();
 	myCharMove->Velocity *= 0;
-	if (FMath::RandRange(0.0f, 1.0f) <= aggressivity) {
+	if (FMath::RandRange(0.0f, 1.0f) <= aggressivity && myTarget->mystate != myTarget->PlayerStates::kdRise) {
 		//attack
 		switch (near_i) {
 			case 0://close combat
@@ -846,7 +1168,17 @@ void AMutationChar::ResetFightAnims() {
 	if (debugInfo)
 		GEngine->AddOnScreenDebugMessage(-1, 0.2f, FColor::Blue, TEXT("[Mutation] following the anim blueprint again!"));
 	
-	CheckRange();
+	myLoc = GetActorLocation();
+	distToTarget = FVector::Distance(myLoc, myTarget->GetActorLocation());
+	if (distToTarget > fightRange) {
+		mystate = MutationStates::pursuit;
+		StartTraverse();
+	}
+	else {
+		DecideWhichSideFacesPlayer();
+		mystate = MutationStates::fight;
+	}
+	//CheckRange();
 }
 void AMutationChar::Investigate() {
 	mystate = MutationStates::investigate;
@@ -875,7 +1207,7 @@ void AMutationChar::MeleeAttack() {
 
 	myMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 	myMesh->PlayAnimation(atkWalker->myAnim, false);
-	UGameplayStatics::PlaySoundAtLocation(world, meleeAtkSFX, GetActorLocation(), SFXvolume);
+	UGameplayStatics::PlaySoundAtLocation(myWorld, meleeAtkSFX, GetActorLocation(), SFXvolume);
 
 	float time2Lethal = atkWalker->time2lethal*(atkWalker->myAnim->SequenceLength / atkWalker->speed);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::StartLethal, time2Lethal, false);
@@ -903,7 +1235,7 @@ void AMutationChar::SpiralAttack() {
 	
 	myMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 	myMesh->PlayAnimation(spiralAtkNode.myAnim, false);
-	UGameplayStatics::PlaySoundAtLocation(world, spiralAtkSFX, GetActorLocation(), SFXvolume);
+	UGameplayStatics::PlaySoundAtLocation(myWorld, spiralAtkSFX, GetActorLocation(), SFXvolume);
 	
 	float time2Lethal = atkWalker->telegraphPortion*(atkWalker->myAnim->SequenceLength / atkWalker->speed);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::StartLethal, time2Lethal, false);
@@ -953,7 +1285,7 @@ void AMutationChar::NextComboHit() {
 }
 
 void AMutationChar::CancelAttack() {
-	world->GetTimerManager().ClearTimer(timerHandle);
+	myWorld->GetTimerManager().ClearTimer(timerHandle);
 	myCharMove->MaxWalkSpeed = normalSpeed;
 	myCharMove->MaxAcceleration = normalAcel;
 	myController->StopBT();
@@ -973,10 +1305,14 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD) {
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Blue, "[Mutation] damaged: "+GetName());
 	}
 	UE_LOG(LogTemp, Warning, TEXT("mutation %s in damage"), *GetName());
+
+	mystate = MutationStates::suffering;
+
 	//stop the traversing
 	donePath = true;
 	
 	CancelAttack();
+	CancelEQS();
 	myCharMove->StopActiveMovement();
 	myController->StopMovement();
 	myCharMove->Velocity *= 0;
@@ -986,7 +1322,7 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD) {
 	LookTo(AlgozPos);
 	
 	if (life - DamagePower < desperateLifeLevel && life >= desperateLifeLevel) {
-		myController->SetDesperate(true);
+		//myController->SetDesperate(true);
 		becomeDesperate = true;
 	}
 
@@ -1005,29 +1341,26 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD) {
 		myAnimBP->damage = 10;
 
 		//hit pause, or, in this case, time dilation
-		UGameplayStatics::SetGlobalTimeDilation(world, 0.1f);
-		UGameplayStatics::PlaySoundAtLocation(world, knockDownSFX, GetActorLocation(), SFXvolume);
+		UGameplayStatics::SetGlobalTimeDilation(myWorld, 0.1f);
+		UGameplayStatics::PlaySoundAtLocation(myWorld, knockDownSFX, GetActorLocation(), SFXvolume);
 		//start stabilize timer
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStartKDtakeOff, hitPauseDuration, false);
 	}
-	else {
-		mystate = MutationStates::suffering;
+	else {		
 		recoilPortion = 1.0f;
 
-		//play damage sound
-				
-	
+		//play damage sound	
 		if (FMath::RandRange(0, 10) < 5) {
 			myAnimBP->damage = 1;
-			UGameplayStatics::PlaySoundAtLocation(world, damage1SFX, GetActorLocation(), SFXvolume);
+			UGameplayStatics::PlaySoundAtLocation(myWorld, damage1SFX, GetActorLocation(), SFXvolume);
 		}
 		else {
 			myAnimBP->damage = 2;
-			UGameplayStatics::PlaySoundAtLocation(world, damage2SFX, GetActorLocation(), SFXvolume);
+			UGameplayStatics::PlaySoundAtLocation(myWorld, damage2SFX, GetActorLocation(), SFXvolume);
 		}
 	
 		//hit pause, or, in this case, time dilation
-		UGameplayStatics::SetGlobalTimeDilation(world, 0.1f);
+		UGameplayStatics::SetGlobalTimeDilation(myWorld, 0.1f);
 		//start stabilize timer
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStabilize, hitPauseDuration, false);
 	}	
@@ -1037,7 +1370,7 @@ void AMutationChar::Death() {
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[Mutation %s] is dead"+GetName());
 	}
 
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
 
 	//check if player was locked to me and disengage targetlock if so
 	myTarget->MutationDied(mutation_i);
@@ -1045,12 +1378,12 @@ void AMutationChar::Death() {
 	myGameState->RemoveMutation(mutation_i, grabable_i, grappable_i);
 
 	//make sure time is reset
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
 
 	AActor::Destroy();
 }
 void AMutationChar::DelayedStartKDtakeOff() {
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
 	mystate = MutationStates::kdFlight;
 	kdrecovering = true;
 	recoilPortion = 1.0f;
@@ -1066,7 +1399,7 @@ void AMutationChar::DelayedStartKDFall() {
 	recoilPortion = 0.0f;
 }
 void AMutationChar::DelayedStabilize() {
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::Stabilize, damageTime, false);
 }
 void AMutationChar::DelayedKDRise() {
@@ -1092,7 +1425,10 @@ void AMutationChar::Stabilize() {
 	if (becomeDesperate) {
 		becomeDesperate = false;
 		//myController->SetDonePath(true);
-		ArrivedAtGoal();
+		//ArrivedAtGoal();
+		mystate = MutationStates::escape;
+		myController->SetNeedHideSpot(true);
+		waitEQS = true;
 	}
 	else{
 		targetPos = myTarget->GetActorLocation();
@@ -1110,28 +1446,16 @@ void AMutationChar::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* 
 		if (debugInfo) {
 			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, "[OverlapBegin] my name: " + GetName() + "hit obj: " + *OtherActor->GetName());
 		}
-	}
-}
 
-void AMutationChar::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	if (OtherActor && (OtherActor != this) && OtherComp)
-	{
 		myTarget = Cast<AMyPlayerCharacter>(OtherActor);
-		
 		if (myTarget) {
-			if (debugInfo) {
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Black, FString::Printf(TEXT("[OverlapEnd] my name: %s hitObj %s compName %s otherIndex %d"), *GetName(), *OtherActor->GetName(), *OtherComp->GetName(), OtherBodyIndex));
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("[algoz] %d"), myTarget->mystate));
-			}
-
-			if (OtherComp->GetName() == myTarget->swordComp->GetName()) {
+			if (OtherComp->GetName() == myTarget->swordComp->GetName() || (OtherComp->GetName() == myTarget->hookComp->GetName() && !myTarget->waiting4HookConn)) {
 				if (mystate != MutationStates::suffering && mystate != MutationStates::kdFlight && mystate != MutationStates::grabbed) {
 					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown);
 				}
 			}
 			else {
-				//check if grab or hook
+				//check if grab
 				if (OtherComp->GetName() == myTarget->grabComp->GetName()) {
 					if (grabable_i >= 0 && !myTarget->mutationGrabbed) {
 						thrownByPlayer = false;
@@ -1139,7 +1463,7 @@ void AMutationChar::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 						mystate = MutationStates::grabbed;
 
 						myTarget->grabTarget_i = grabable_i;
-						UGameplayStatics::PlaySoundAtLocation(world, begrabbedSFX, GetActorLocation(), SFXvolume);
+						UGameplayStatics::PlaySoundAtLocation(myWorld, begrabbedSFX, GetActorLocation(), SFXvolume);
 						myTarget->GrabSuccess();
 
 						grabbingSocketName = OtherComp->GetAttachSocketName();
@@ -1166,6 +1490,17 @@ void AMutationChar::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 					}
 				}
 			}
+		}		
+	}
+}
+
+void AMutationChar::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (OtherActor && (OtherActor != this) && OtherComp)
+	{
+		if (debugInfo) {
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Black, FString::Printf(TEXT("[OverlapEnd] my name: %s hitObj %s compName %s otherIndex %d"), *GetName(), *OtherActor->GetName(), *OtherComp->GetName(), OtherBodyIndex));
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("[algoz] %d"), myTarget->mystate));
 		}
 	}
 }
@@ -1251,6 +1586,15 @@ void AMutationChar::GrabThrow(FVector GrabThrowDir, float GrabThrowSpeed) {
 }
 void AMutationChar::ClearHeightRoll() {
 	heightRollMid = true;
+}
+void AMutationChar::CancelEQS() {
+	myController->SetNeedHideSpot(false);
+	myController->SetNeedSeekSpot(false);
+	myController->SetNeedBestPath(false);
+	
+	myController->RestartBT();
+	askedBestPath = 0;
+	waitEQS = false;
 }
 void AMutationChar::DecideWhichSideFacesPlayer() {
 	//calculating what direction to rotate to face player

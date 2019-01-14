@@ -140,7 +140,8 @@ public:
 	float startedHold2;
 	float mytime;
 	float startReorient;
-	
+	bool waiting4HookConn;
+
 	UPROPERTY(EditAnywhere, Category = Combat)bool debugInfo;
 	UPROPERTY(EditAnywhere, Category = Combat)float reorientTime;
 	UPROPERTY(EditAnywhere, Category = Combat)float msgTime;
@@ -172,6 +173,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) TSubclassOf<class AMosquitoCharacter> MosquitoClass;
 	UPROPERTY(EditAnywhere, Category = Combat) bool invertJoystickY; 
 	UPROPERTY(EditAnywhere, Category = Combat) float joyTurnGain = 1.5f;
+	UPROPERTY(EditAnywhere, Category = Combat) float CameraArmLength = 300.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float CameraLockArmLength = 600.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) bool lookInCamDir;
 	UPROPERTY(EditAnywhere, Category = Combat) bool lockTargetPersistent = false;
 	UPROPERTY(EditAnywhere, Category = Combat) float heightOffset_tgtLock = 100.0f;
@@ -257,9 +260,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) FAtkNode superHitR;
 	//combo variables
 	TArray<FAtkNode> attackChain;
+	TArray<bool> atkRightSideChain;
 	bool attackLocked;
 	bool airAttackLocked;
 	float attackPower;
+	
 	UPROPERTY(EditAnywhere, Category = Combat) TArray<FAtkNode> attackList;
 	UPROPERTY(EditAnywhere, Category = Combat) TArray<FAtkNode> attackAirList;
 	
@@ -334,6 +339,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = AI) void ReportHookConnected();
 	UFUNCTION(BlueprintCallable, Category = AI) void ReportGrabThrow();
+	UPROPERTY(BlueprintReadWrite) int target_i = -1;
 
 private:
 	APlayerController* player;
@@ -344,8 +350,7 @@ private:
 	FHitResult hitres;
 	
 	INT32 width, height;	
-	int grapleTarget_i = -1;	
-	int target_i = -1;
+	int grapleTarget_i = -1;
 	bool aiming;
 	float grappleValue;
 	bool targetLocked = false;
@@ -358,8 +363,7 @@ private:
 	bool dashing;
 	bool dashDesire;
 	bool arising;
-	bool waiting4Hook;
-	bool waiting4HookConn;
+	bool waiting4Hook;	
 	bool waiting4GrabThrow;
 	FVector hookRelPos;
 	FQuat hookRelRot;

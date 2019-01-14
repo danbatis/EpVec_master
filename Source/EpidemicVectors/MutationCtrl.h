@@ -57,6 +57,12 @@ public:
 	void SetBlindSearch(bool Active);
 	
 	FVector GetGoal();
+	void SetNeedHideSpot(bool needSpot);	
+	void SetNeedSeekSpot(bool needSpot);	
+	void SetNeedBestPath(bool needPath);
+	bool GetNeedHideSpot();
+	bool GetNeedSeekSpot();
+	bool GetNeedBestPath();
 
 	void StopBT();
 	void RestartBT();

@@ -44,7 +44,7 @@ AMyPlayerCharacter::AMyPlayerCharacter()
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
+	CameraBoom->TargetArmLength = CameraArmLength; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 
 	// Create a follow camera
@@ -208,6 +208,9 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	if (debugInfo)
 		GEngine->AddOnScreenDebugMessage(-1, 0.01f, FColor::Blue, FString::Printf(TEXT("[playerState: %d"), mystate));
 
+	//because it is possible to change the resolution on the editor
+	player->GetViewportSize(width, height);
+
 	//test raycast for the grappling hook
 	if (player->IsInputKeyDown(hookKey)){
 
@@ -239,6 +242,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		//	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Blue, TEXT("falling..."));
 		if(!grounded && mystate == idle){
 			UGameplayStatics::PlaySoundAtLocation(world, landSFX, GetActorLocation(), SFXvolume);
+			MakeNoise(1.0f, this, GetActorLocation());
 			landing = true;
 			CancelAttack();
 			GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, FString::Printf(TEXT("[player] called stopLand, playerState: %d"), mystate));			
@@ -252,6 +256,12 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		myAnimBP->airJumped = false;
 	}
 	else{
+		if (grounded) {
+			//just lost the ground
+			CancelAttack();
+			if(mystate == attacking)
+				mystate = idle;
+		}
 		grounded = false;
 	}
 	myRotation = Controller->GetControlRotation();
@@ -599,8 +609,10 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 
 						//auto activate the target lock after a successfull hook flight
 						GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Blue, FString::Printf(TEXT("trying to auto activate targetLocked, target_i: %d"), target_i));
-						if (target_i >= 0)
+						if (target_i >= 0) {
+							CameraBoom->TargetArmLength = CameraLockArmLength;
 							targetLocked = true;
+						}
 					}
 				}
 				grapleTarget_i = -1;
@@ -805,11 +817,12 @@ void AMyPlayerCharacter::Reorient(){
 		targetLocking = false;
 		if (lockTargetPersistent) {
 			if (!targetLockUpdated) {
+				CameraBoom->TargetArmLength = CameraArmLength;
 				targetLocked = false;
 				target_i = -1;
 			}			
 		}
-		else { targetLocked = false; target_i = -1;	}
+		else { CameraBoom->TargetArmLength = CameraArmLength; targetLocked = false; target_i = -1;	}
 	}
 	if (player->WasInputKeyJustPressed(targetLockKey) || player->WasInputKeyJustPressed(targetLock_jKey)) {
 		targetLocking = true;
@@ -897,6 +910,7 @@ void AMyPlayerCharacter::Reorient(){
 			}
 			else {
 				targetLocked = false;
+				CameraBoom->TargetArmLength = CameraArmLength;
 				target_i = -1;
 				//turn off the crosshairs
 				targetScreenPos.X = -1.0f;
@@ -1082,10 +1096,14 @@ void AMyPlayerCharacter::FindEnemy(int locDir) {
 				}
 			}
 	}
-	if (target_i >= 0)
+	if (target_i >= 0) {
 		targetLocked = true;
-	else
+		CameraBoom->TargetArmLength = CameraLockArmLength;
+	}
+	else {
 		targetLocked = false;
+		CameraBoom->TargetArmLength = CameraArmLength;
+	}
 }
 void AMyPlayerCharacter::Look2Dir(FVector LookDir) {
 	myLoc = GetActorLocation();
@@ -1250,6 +1268,7 @@ void AMyPlayerCharacter::AttackWalk(bool left){
 				atkWalker = atkWalker->left;
 				//myCharMove->bOrientRotationToMovement = false;
 				attackChain.Add(*atkWalker);
+				atkRightSideChain.Add(false);
 			}
 			else {
 				if(inAir)
@@ -1263,6 +1282,7 @@ void AMyPlayerCharacter::AttackWalk(bool left){
 				atkWalker = atkWalker->right;
 				//myCharMove->bOrientRotationToMovement = false;
 				attackChain.Add(*atkWalker);
+				atkRightSideChain.Add(true);
 			}
 			else {
 				if(inAir)
@@ -1277,6 +1297,7 @@ void AMyPlayerCharacter::NextComboHit(){
 	if (atkIndex >= attackChain.Num()){
 		//reset attackChain
 		attackChain.Empty();
+		atkRightSideChain.Empty();
 		atkIndex = 0;
 		atkChainIndex = 0;
 		airAttackLocked = true;
@@ -1334,8 +1355,16 @@ void AMyPlayerCharacter::NextComboHit(){
 void AMyPlayerCharacter::StartLethal(){
 	UGameplayStatics::PlaySoundAtLocation(world, BasicSlashSFX, GetActorLocation(), SFXvolume);
 	updateAtkDir = false;
-	if (swordComp)
-		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
+
+	if (atkRightSideChain[atkIndex]) {
+		if (swordComp)
+			Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
+	}
+	else {
+		if (hookComp)
+			Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(true);
+	}
+
 	float time2NotLethal = attackChain[atkIndex].lethalTime*(attackChain[atkIndex].myAnim->SequenceLength / attackChain[atkIndex].speed);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::StopLethal, time2NotLethal, false);
 }
@@ -1365,6 +1394,8 @@ void AMyPlayerCharacter::Relax(){
 
 	if (swordComp)
 		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(false);
+	if (hookComp)
+		Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(false);
 	
 	world->GetTimerManager().ClearTimer(timerHandle);
 	if (debugInfo)
@@ -1392,6 +1423,7 @@ void AMyPlayerCharacter::CancelAttack() {
 	CancelKnockDownPrepare(true);
 	CancelKnockDownPrepare(false);
 	attackChain.Empty();
+	atkRightSideChain.Empty();
 	atkIndex = 0;
 	atkChainIndex = 0;
 	airAttackLocked = false;
@@ -1686,6 +1718,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 		UGameplayStatics::SetGlobalTimeDilation(world, aimTimeDilation);
 		oldTargetLocked = targetLocked;
 		targetLocked = false;
+		CameraBoom->TargetArmLength = CameraArmLength;
 		aiming = true;
 		targetScreenPos.X = 0.5f;
 		targetScreenPos.Y = 0.5f;
@@ -1693,7 +1726,8 @@ void AMyPlayerCharacter::Listen4Hook() {
 	}
 	//grapple aim
 	if (player->IsInputKeyDown(hookKey) || player->IsInputKeyDown(hook_jKey)) {
-		myLoc = GetActorLocation();
+		//myLoc = GetActorLocation();
+		myLoc = FollowCamera->GetComponentLocation();
 		forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
 		FVector targetPos = myLoc + forthVec * (hookRange + disengageHookDist);
 		if (debugInfo) {
@@ -1925,31 +1959,32 @@ void AMyPlayerCharacter::OnEndOverlap(UPrimitiveComponent* OverlappedComponent, 
 void AMyPlayerCharacter::HookOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, "[hook Overlap] triggered: " + GetName() + "hit obj: " + *OtherActor->GetName());
-	
-	//check if mutation or grapple point
-	AMutationChar * maybeMutation = Cast<AMutationChar>(OtherActor);
-	if (maybeMutation) {
-		if (maybeMutation->grabable) {
-			UGameplayStatics::PlaySoundAtLocation(world, grapConnMutationSFX, GetActorLocation(), SFXvolume);
-			HookConnect();
-			maybeMutation->Grappled();
+	if (waiting4HookConn) {
+		//check if mutation or grapple point
+		AMutationChar * maybeMutation = Cast<AMutationChar>(OtherActor);
+		if (maybeMutation) {
+			if (maybeMutation->grabable) {
+				UGameplayStatics::PlaySoundAtLocation(world, grapConnMutationSFX, GetActorLocation(), SFXvolume);
+				HookConnect();
+				maybeMutation->Grappled();
+			}
+			else {
+				//hook fail
+				UGameplayStatics::PlaySoundAtLocation(world, grappleFailSFX, GetActorLocation(), SFXvolume);
+				HookReturn();
+			}
 		}
 		else {
-			//hook fail
-			UGameplayStatics::PlaySoundAtLocation(world, grappleFailSFX, GetActorLocation(), SFXvolume);
-			HookReturn();
-		}
-	}
-	else {
-		AGrappable * maybeGrapPoint = Cast<AGrappable>(OtherActor);
-		if (maybeGrapPoint) {
-			UGameplayStatics::PlaySoundAtLocation(world, grapConnPointSFX, GetActorLocation(), SFXvolume);
-			HookConnect();
-		}
-		else {
-			//hook fail
-			UGameplayStatics::PlaySoundAtLocation(world, grappleFailSFX, GetActorLocation(), SFXvolume);
-			HookReturn();
+			AGrappable * maybeGrapPoint = Cast<AGrappable>(OtherActor);
+			if (maybeGrapPoint) {
+				UGameplayStatics::PlaySoundAtLocation(world, grapConnPointSFX, GetActorLocation(), SFXvolume);
+				HookConnect();
+			}
+			else {
+				//hook fail
+				UGameplayStatics::PlaySoundAtLocation(world, grappleFailSFX, GetActorLocation(), SFXvolume);
+				HookReturn();
+			}
 		}
 	}
 }
@@ -1977,6 +2012,7 @@ void AMyPlayerCharacter::MyDamage(float DamagePower, bool KD, bool Spiral) {
 
 	if (KD){
 		targetLocked = false;
+		CameraBoom->TargetArmLength = CameraArmLength;
 		target_i = -1;
 		targetScreenPos.X = -1.0f;
 		targetScreenPos.Y = -1.0f;
@@ -2172,6 +2208,7 @@ void AMyPlayerCharacter::GrabFail() {
 void AMyPlayerCharacter::GrabSuccess() {
 	mutationGrabbed = true;
 	targetLocked = false;
+	CameraBoom->TargetArmLength = CameraArmLength;
 	target_i = -1;
 	UGameplayStatics::PlaySoundAtLocation(world, grabConnectSFX, GetActorLocation(), SFXvolume);
 	if (grabComp)
@@ -2230,6 +2267,7 @@ void AMyPlayerCharacter::MutationDied(int MutationID) {
 	if (target_i == MutationID) {
 		target_i = -1;
 		targetLocked = false;
+		CameraBoom->TargetArmLength = CameraArmLength;
 	}
 }
 void AMyPlayerCharacter::FellOutOfWorld(const class UDamageType& dmgType)

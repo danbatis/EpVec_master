@@ -16,10 +16,12 @@
 
 #include "MyPlayerCharacter.h"
 #include "MutationAnimComm.h"
+#include "CustomWaypoint.h"
 #include "VectorsGameStateBase.h"
 #include "Engine.h"
 
 #include "MutationChar.generated.h"
+
 
 //forward declaration to avoid circular reference
 class AMutationCtrl;
@@ -56,26 +58,6 @@ public:
 	}
 };
 
-USTRUCT(BlueprintType, Category = "MutationAI")
-struct FScanParams {
-	GENERATED_USTRUCT_BODY()
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float timeInOldHead;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float timeToScan;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float angleToScan;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float timeInMidHead;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float timeToLookNewHead;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float timeBeforeTraverse;
-		
-	FScanParams() { 
-		timeInOldHead = 0.0f;
-		timeToScan = 0.0f;
-		angleToScan = 0.0f;
-		timeInMidHead = 0.0f;
-		timeToLookNewHead = 0.0f;
-		timeBeforeTraverse = 0.0f;
-	}
-};
 
 UENUM(BlueprintType) enum class MutationStates:uint8 {
 	idle		UMETA(DisplayName = "idle"),		//0
@@ -156,7 +138,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") bool grabable;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float silentTime;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float stunLostTime;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") TArray<ATargetPoint*> patrolPoints;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") TArray<ACustomWaypoint*> patrolPoints;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float desperateLifeLevel = 10.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float fightRange = 500.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float rollTolHeight = 200.0f;
@@ -174,9 +156,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float moveTolerance = 100.0f;
 	UPROPERTY(BlueprintReadWrite) FScanParams currentScanParams;
 	UPROPERTY(BlueprintReadWrite) FName grabbingSocketName;
+	const UEnum* EnumPtr;
 	float mytime;
+	float searchTimer;
+	bool waitEQS;
+	int askedBestPath;
 	bool flying;
 	bool inAir;
+	bool targetInAir;
 	bool inFightRange;
 	bool donePath;
 	bool targetVisible;
@@ -220,6 +207,7 @@ public:
 	USkeletalMeshComponent * myMesh;
 	UCapsuleComponent* myCapsuleComp;
 	AVectorsGameStateBase *myGameState;
+	EPathFollowingRequestResult::Type movingRes;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float faceTolerance = 2.0f; 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float faceTargetRotSpeed = 350.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float blindPursuitTime = 5.0f;
@@ -263,11 +251,13 @@ private:
 	float oldTargetDist;
 	bool heightRollMid;
 	FVector moveDir;
-	// You can use this to customize various properties about the trace
-	FCollisionQueryParams RayParams;
+		
 	// The hit result gets populated by the line trace
 	FHitResult hitres;
-	UWorld* world;
+	FCollisionQueryParams RayParams;
+	FVector myLoc;
+	FVector forthVec;
+	UWorld* myWorld;
 	UMutationAnimComm * myAnimBP;
 	UCharacterMovementComponent *myCharMove;
 	USceneComponent* mainWeaponComp;
@@ -306,7 +296,8 @@ private:
 	void ClearHeightRoll();
 	void FellOutOfWorld(const class UDamageType& dmgType);
 	void DecideWhichSideFacesPlayer();
-	
+	void CancelEQS();
+
 	FTimerHandle timerHandle;	
 	FMutAtkNode* atkWalker;
 };
