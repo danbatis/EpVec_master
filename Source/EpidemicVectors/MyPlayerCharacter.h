@@ -45,6 +45,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") int rightNode;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") float coolDown;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") float advanceAtkValue;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") float pushForce;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") float pushTime;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") bool knockDown;
 
 	FAtkNode* left;
@@ -57,6 +59,8 @@ public:
 		lethalTime = 0.8f; 
 		coolDown = 0.3f; 
 		advanceAtkValue = 1.0f;
+		pushForce = 1.0f;
+		pushTime = 0.3f;
 		knockDown = false;
 	}
 };
@@ -153,6 +157,7 @@ public:
 	int atkIndex;
 	int atkChainIndex;
 	bool knockingDown;
+	float attackPush;
 	int grabTarget_i = -1;
 	bool mutationGrabbed;
 	
@@ -173,7 +178,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) TSubclassOf<class AMosquitoCharacter> MosquitoClass;
 	UPROPERTY(EditAnywhere, Category = Combat) bool invertJoystickY; 
 	UPROPERTY(EditAnywhere, Category = Combat) float joyTurnGain = 1.5f;
-	UPROPERTY(EditAnywhere, Category = Combat) float CameraArmLength = 300.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float CameraFreeArmLength = 300.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float CameraLockArmLength = 600.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) bool lookInCamDir;
 	UPROPERTY(EditAnywhere, Category = Combat) bool lockTargetPersistent = false;
@@ -190,6 +195,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) float dashForthRate = 0.5f; 
 	UPROPERTY(EditAnywhere, Category = Combat) float attackNormalPower = 10.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float attackKDPower = 20.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float spinRisePushForce = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float dashPower = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float airJumpSpeed = 200.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) bool airJumpLocked;
@@ -311,6 +317,9 @@ public:
 	FRotator YawRotation;
 	float vertIn;
 	float horIn;
+	float altVertIn;
+	float altHorIn;
+
 	int verticalJoyDir = 1;
 	FVector forthVec;
 	FVector rightVec;
@@ -373,6 +382,9 @@ private:
 	FVector targetDir;
 	float distToTarget;
 	bool inviewport;
+	float cameraArmLength;
+	float cameraArmLengthTarget;
+	float nearCamStart;
 	
 	float dashStart;
 	float dashPowerRate;

@@ -1300,13 +1300,14 @@ void AMutationChar::CancelAttack() {
 	myAnimBP = Cast<UMutationAnimComm>(myMesh->GetAnimInstance());
 }
 
-void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD) {
+void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float RecoilForce, float DamageTime) {
 	if (debugInfo) {
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Blue, "[Mutation] damaged: "+GetName());
 	}
 	UE_LOG(LogTemp, Warning, TEXT("mutation %s in damage"), *GetName());
 
 	mystate = MutationStates::suffering;
+	damageTime = DamageTime;
 
 	//stop the traversing
 	donePath = true;
@@ -1330,9 +1331,9 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD) {
 	if (life <= 0)
 		Death();
 
+	recoilPortion = RecoilForce;
 	//play damage animation
 	if (KD) {
-		recoilPortion = 1.0f;
 		flying = false;
 		myCharMove->MovementMode = MOVE_Flying;
 				
@@ -1347,8 +1348,7 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD) {
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStartKDtakeOff, hitPauseDuration, false);
 	}
 	else {		
-		recoilPortion = 1.0f;
-
+		
 		//play damage sound	
 		if (FMath::RandRange(0, 10) < 5) {
 			myAnimBP->damage = 1;
@@ -1386,7 +1386,7 @@ void AMutationChar::DelayedStartKDtakeOff() {
 	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
 	mystate = MutationStates::kdFlight;
 	kdrecovering = true;
-	recoilPortion = 1.0f;
+	
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStartKDFlight, knockDownTakeOffTime, false);
 }
 void AMutationChar::DelayedStartKDFlight() {
@@ -1451,7 +1451,7 @@ void AMutationChar::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* 
 		if (myTarget) {
 			if (OtherComp->GetName() == myTarget->swordComp->GetName() || (OtherComp->GetName() == myTarget->hookComp->GetName() && !myTarget->waiting4HookConn)) {
 				if (mystate != MutationStates::suffering && mystate != MutationStates::kdFlight && mystate != MutationStates::grabbed) {
-					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown);
+					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown, myTarget->attackPush, myTarget->pushTime);
 				}
 			}
 			else {
@@ -1548,8 +1548,7 @@ void AMutationChar::OutOfAction() {
 }
 void AMutationChar::FromGrappleRecover() {
 	OutOfAction();
-	mystate = MutationStates::dizzy;
-
+	
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::Stabilize, dizzyTime, false);
 }
 void AMutationChar::SetRagdoll(bool Activation) {

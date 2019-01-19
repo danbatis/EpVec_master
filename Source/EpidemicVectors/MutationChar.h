@@ -282,7 +282,7 @@ private:
 
 	void NextComboHit();
 	void CancelAttack();
-	void MyDamage(float DamagePower, FVector AlgozPos, bool KD);
+	void MyDamage(float DamagePower, FVector AlgozPos, bool KD, float RecoilForce, float DamageTime);
 	void Death();
 	void DelayedStartKDtakeOff();
 	void DelayedStartKDFlight();
