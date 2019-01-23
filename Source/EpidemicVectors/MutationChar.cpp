@@ -13,19 +13,19 @@ AMutationChar::AMutationChar()
 	//Initializing our Pawn Sensing comp and our behavior tree reference
 	PawnSensingComp = CreateDefaultSubobject<UPawnSensingComponent>(TEXT("PawnSensingComp"));
 	BehaviorTree = CreateDefaultSubobject<UBehaviorTree>(TEXT("BehaviorTreeReference"));
-	//Damage detector
-	damageDetector = CreateDefaultSubobject<UBoxComponent>(TEXT("DamageDetector"));
+	
 	//Don't collide with camera to keep 3rd person camera at position when obstructed by this char
 	myCapsuleComp = GetCapsuleComponent();
-	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
-	myCapsuleComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	//myCapsuleComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	//GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	
+	/*
+	//Damage detector
+	damageDetector = CreateDefaultSubobject<UBoxComponent>(TEXT("DamageDetector"));
 	damageDetector->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
-
 	damageDetector->SetupAttachment(myCapsuleComp);
 	damageDetector->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
-
-	damageDetector->OnComponentBeginOverlap.AddDynamic(this, &AMutationChar::OnOverlapBegin);
-	damageDetector->OnComponentEndOverlap.AddDynamic(this, &AMutationChar::OnOverlapEnd);
+	*/	
 }
 
 // Called when the game starts or when spawned
@@ -38,6 +38,9 @@ void AMutationChar::BeginPlay()
 	RayParams.bReturnPhysicalMaterial = false;
 	//RayParams.AddIgnoredActor(this);
 	
+	GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &AMutationChar::OnBeginOverlap);
+	GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &AMutationChar::OnEndOverlap);
+
 	if (PawnSensingComp)
 	{
 		//Registering the delegate which will fire when we hear something
@@ -1439,19 +1442,19 @@ void AMutationChar::Stabilize() {
 	}
 }
 
-void AMutationChar::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AMutationChar::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor && (OtherActor != this) && OtherComp)
 	{
 		if (debugInfo) {
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, "[OverlapBegin] my name: " + GetName() + "hit obj: " + *OtherActor->GetName());
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[OverlapBegin] my name: " + GetName() + "hit obj: " + *OtherActor->GetName());
 		}
 
 		myTarget = Cast<AMyPlayerCharacter>(OtherActor);
 		if (myTarget) {
 			if (OtherComp->GetName() == myTarget->swordComp->GetName() || (OtherComp->GetName() == myTarget->hookComp->GetName() && !myTarget->waiting4HookConn)) {
 				if (mystate != MutationStates::suffering && mystate != MutationStates::kdFlight && mystate != MutationStates::grabbed) {
-					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown, myTarget->attackPush, myTarget->pushTime);
+					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown, myTarget->attackPush, myTarget->atkPushTime);
 				}
 			}
 			else {
@@ -1494,7 +1497,7 @@ void AMutationChar::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* 
 	}
 }
 
-void AMutationChar::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void AMutationChar::OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	if (OtherActor && (OtherActor != this) && OtherComp)
 	{
@@ -1518,8 +1521,8 @@ void AMutationChar::DelayedFromGrabRecover(){
 	
 	//enable collisions so mutations do not get throw through objects
 	//myCapsuleComp->BodyInstance.SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics, false);
-	myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	myCapsuleComp->SetGenerateOverlapEvents(true);
+	//myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	//myCapsuleComp->SetGenerateOverlapEvents(true);
 
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::FromGrabRecover, grabRecoverTime, false);
 }
@@ -1533,7 +1536,7 @@ void AMutationChar::FromGrabRecover() {
 	myCharMove->MaxAcceleration = normalAcel;
 
 	ResetFightAnims();
-	myCapsuleComp->SetGenerateOverlapEvents(true);
+	//myCapsuleComp->SetGenerateOverlapEvents(true);
 	//release it to fight
 	mystate = MutationStates::fight;
 	DecideWhichSideFacesPlayer();
@@ -1553,19 +1556,19 @@ void AMutationChar::FromGrappleRecover() {
 }
 void AMutationChar::SetRagdoll(bool Activation) {
 	//turn off collisions on original collider
-	myCapsuleComp->SetGenerateOverlapEvents(!Activation);
+	//myCapsuleComp->SetGenerateOverlapEvents(!Activation);
 	//turn off collisions on damageDetector
-	damageDetector->SetGenerateOverlapEvents(!Activation);
+	//damageDetector->SetGenerateOverlapEvents(!Activation);
 	
 	myMesh->SetAllBodiesBelowSimulatePhysics(skeletonRootName, Activation, false);
 	if (Activation) {
 		//myCapsuleComp->BodyInstance.SetCollisionEnabled(ECollisionEnabled::NoCollision, false);		
-		myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		//myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		myMesh->SetAllBodiesBelowPhysicsBlendWeight(skeletonRootName, 1.0f, false, false);
 	}
 	else{
 		//myCapsuleComp->BodyInstance.SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics, false);
-		myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		//myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		myMesh->SetAllBodiesBelowPhysicsBlendWeight(skeletonRootName, 0.0f, false, false);
 		myController->RestartBT();
 	}

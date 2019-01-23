@@ -112,17 +112,11 @@ public:
 
 	/*A Pawn Sensing Component, responsible for sensing other Pawns*/
 	UPROPERTY(VisibleAnywhere) UPawnSensingComponent* PawnSensingComp;
-	//collision component to handle the overlaps for the combat
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)	UBoxComponent* damageDetector;
-
+	
 	//sensing
 	UFUNCTION()	void OnHearNoise(APawn* PawnInstigator, const FVector& Location, float Volume);
 	UFUNCTION() void OnSeenTarget(APawn * PawnInstigator);
-
-	//Damage Detection
-	UFUNCTION() void OnOverlapBegin(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	UFUNCTION() void OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-	
+			
 	UFUNCTION(BlueprintCallable) void NextPatrolPoint();
 	UFUNCTION(BlueprintCallable) void ArrivedAtGoal();
 	UFUNCTION(BlueprintCallable) void MutationFight(float DeltaTime);
@@ -300,4 +294,8 @@ private:
 
 	FTimerHandle timerHandle;	
 	FMutAtkNode* atkWalker;
+
+	//Damage Detection
+	UFUNCTION() void OnBeginOverlap(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION() void OnEndOverlap(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 };

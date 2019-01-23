@@ -103,10 +103,7 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;	
 	//-----------------------------------------------------------mycode starts here
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
-	UCapsuleComponent* collisionCapsule;
-
+public:	
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 		class USpringArmComponent* CameraBoom;
@@ -147,6 +144,11 @@ public:
 	bool waiting4HookConn;
 
 	UPROPERTY(EditAnywhere, Category = Combat)bool debugInfo;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) bool follwdBarShow;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float follwdTgtDist;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float follwdTgtStep = 500.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FName follwdTgtStatus;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) int interactionLevel = 10;
 	UPROPERTY(EditAnywhere, Category = Combat)float reorientTime;
 	UPROPERTY(EditAnywhere, Category = Combat)float msgTime;
 	UPROPERTY(EditAnywhere, Category = Combat)float holdTimeMin;
@@ -158,6 +160,7 @@ public:
 	int atkChainIndex;
 	bool knockingDown;
 	float attackPush;
+	float atkPushTime;
 	int grabTarget_i = -1;
 	bool mutationGrabbed;
 	
@@ -196,6 +199,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) float attackNormalPower = 10.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float attackKDPower = 20.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float spinRisePushForce = 1.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float spinRisePushTime = 0.4f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float dashPower = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float airJumpSpeed = 200.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) bool airJumpLocked;

@@ -15,13 +15,17 @@ AMyPlayerCharacter::AMyPlayerCharacter()
 	GetCapsuleComponent()->SetNotifyRigidBodyCollision(true);
 	GetCapsuleComponent()->BodyInstance.SetCollisionProfileName("BlockAllDynamic");
 	*/
-	collisionCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("collisionCapsule"));
-	//collisionCapsule->AttachToComponent(RootComponent);
-	collisionCapsule->SetupAttachment(GetCapsuleComponent());
+
+	//collisionCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("collisionCapsule"));	
+	//collisionCapsule->SetupAttachment(GetCapsuleComponent());
 
 	//collisionCapsule->OnComponentHit.AddDynamic(this, &AMyPlayerCharacter::OnCompHit);
-	collisionCapsule->OnComponentBeginOverlap.AddDynamic(this, &AMyPlayerCharacter::OnBeginOverlap);
-	collisionCapsule->OnComponentEndOverlap.AddDynamic(this, &AMyPlayerCharacter::OnEndOverlap);
+	GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &AMyPlayerCharacter::OnBeginOverlap);
+	GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &AMyPlayerCharacter::OnEndOverlap);
+	//collisionCapsule->OnComponentBeginOverlap.AddDynamic(this, &AMyPlayerCharacter::OnBeginOverlap);
+	//collisionCapsule->OnComponentEndOverlap.AddDynamic(this, &AMyPlayerCharacter::OnEndOverlap);
+
+	//collisionCapsule->AttachToComponent(RootComponent);
 
 	// Set as root component
 	//RootComponent = GetCapsuleComponent();
@@ -38,8 +42,8 @@ AMyPlayerCharacter::AMyPlayerCharacter()
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 	
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
-	GetCharacterMovement()->JumpZVelocity = 600.f;
+	//GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
+	//GetCharacterMovement()->JumpZVelocity = 600.f;
 	
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -204,13 +208,19 @@ void AMyPlayerCharacter::BeginPlay()
 void AMyPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 	if (debugInfo)
 		GEngine->AddOnScreenDebugMessage(-1, 0.01f, FColor::Blue, FString::Printf(TEXT("[playerState: %d"), mystate));
-	
+
 	mytime += DeltaTime;
-	vertIn = player->GetInputAnalogKeyState(vertical_Up) + (-1)*player->GetInputAnalogKeyState(vertical_Down) + player->GetInputAnalogKeyState(vertical_j);
-	horIn = player->GetInputAnalogKeyState(horizontal_R) + (-1)*player->GetInputAnalogKeyState(horizontal_L) + player->GetInputAnalogKeyState(horizontal_j);
+	if(interactionLevel >= 1){
+		vertIn = player->GetInputAnalogKeyState(vertical_Up) + (-1)*player->GetInputAnalogKeyState(vertical_Down) + player->GetInputAnalogKeyState(vertical_j);
+		horIn = player->GetInputAnalogKeyState(horizontal_R) + (-1)*player->GetInputAnalogKeyState(horizontal_L) + player->GetInputAnalogKeyState(horizontal_j);
+	}
+	else {
+		vertIn = 0.0f; horIn = 0.0f;
+	}
+
 	altVertIn = (-1)*player->GetInputAnalogKeyState(verticalCam) + player->GetInputAnalogKeyState(vertical_jCam);
 	altHorIn = player->GetInputAnalogKeyState(horizontalCam) + player->GetInputAnalogKeyState(horizontal_jCam);
 
@@ -244,15 +254,17 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		airJumpLocked = false;
 		airAttackLocked = false;
 		myAnimBP->airdashed = false;
+		myAnimBP->jumped = false;
 		myAnimBP->airJump = false;
 		myAnimBP->airJumped = false;
 	}
 	else{
 		if (grounded) {
-			//just lost the ground
-			CancelAttack();
-			if(mystate == attacking)
+			//just lost the ground			
+			if (mystate == attacking) {
+				CancelAttack();
 				mystate = idle;
+			}
 		}
 		grounded = false;
 	}
@@ -704,6 +716,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				attackPower = attackKDPower;
 				knockingDown = true;
 				attackPush = spinRisePushForce;
+				atkPushTime = spinRisePushTime;
 				myAnimBP->damageIndex = 33;
 				mystate = kdGround;
 				UGameplayStatics::PlaySoundAtLocation(world, spinRiseSFX, GetActorLocation(), SFXvolume);
@@ -716,6 +729,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				arising = true;
 				//seesaw attack rise
 				attackPush = spinRisePushForce;
+				atkPushTime = spinRisePushTime;
 				attackPower = attackNormalPower;
 				myAnimBP->damageIndex = 32;
 				mystate = attacking;
@@ -1193,12 +1207,11 @@ void AMyPlayerCharacter::KnockDownHit(bool left) {
 	knockingDown = true;
 	attackPower = attackKDPower;
 	
-	//become lethal
-	if (swordComp)
-		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
-	
 	float relaxTime;
 	if(left){
+		//become lethal
+		if (hookComp)
+			Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(true);
 		//start the attack
 		//superHitL.myAnim->RateScale = superHitL.speed;
 		UGameplayStatics::PlaySoundAtLocation(world, ChargeSlashL_endSFX, GetActorLocation(), SFXvolume);
@@ -1214,9 +1227,14 @@ void AMyPlayerCharacter::KnockDownHit(bool left) {
 			0.0f);
 		advanceAtk = superHitL.advanceAtkValue;
 		attackPush = superHitL.pushForce;
+		atkPushTime = superHitL.pushTime;
 		relaxTime = superHitL.myAnim->SequenceLength/superHitL.speed;
 	}
-	else{		
+	else{
+		//become lethal
+		if (swordComp)
+			Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
+
 		//superHitR.myAnim->RateScale = superHitR.speed;
 		UGameplayStatics::PlaySoundAtLocation(world, ChargeSlashR_endSFX, GetActorLocation(), SFXvolume);
 		//myMesh->PlayAnimation(superHitR.myAnim, false);
@@ -1231,6 +1249,7 @@ void AMyPlayerCharacter::KnockDownHit(bool left) {
 			0.0f);
 		advanceAtk = superHitR.advanceAtkValue;
 		attackPush = superHitR.pushForce;
+		atkPushTime = superHitR.pushTime;
 		relaxTime = superHitR.myAnim->SequenceLength/superHitR.speed;
 	}
 	mystate = attacking;
@@ -1313,6 +1332,7 @@ void AMyPlayerCharacter::NextComboHit(){
 		updateAtkDir = true;
 		knockingDown = attackChain[atkIndex].knockDown;
 		attackPush = attackChain[atkIndex].pushForce;
+		atkPushTime = attackChain[atkIndex].pushTime;
 		if (knockingDown)
 			attackPower = attackKDPower;
 		else
@@ -1478,7 +1498,7 @@ void AMyPlayerCharacter::ResetAttacks(){
 }
 
 void AMyPlayerCharacter::Listen4Dash() {
-	if (!dashing && (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey))) {
+	if (!dashing && interactionLevel >= 2 && (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey))) {
 		dashDesire = true;
 		dashStart = mytime;
 		CancelAttack();
@@ -1489,7 +1509,7 @@ void AMyPlayerCharacter::Listen4Dash() {
 	}
 }
 void AMyPlayerCharacter::Listen4Move(float DeltaTime){
-	if (player->WasInputKeyJustPressed(jumpKey) || player->WasInputKeyJustPressed(jump_jKey))
+	if ( interactionLevel >= 1 && (player->WasInputKeyJustPressed(jumpKey) || player->WasInputKeyJustPressed(jump_jKey)))
 	{
 		wallRunDesire = true;
 		if (wallRunning) {
@@ -1507,6 +1527,7 @@ void AMyPlayerCharacter::Listen4Move(float DeltaTime){
 					GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("ground jump..."));
 
 				UGameplayStatics::PlaySoundAtLocation(world, jumpSFX, GetActorLocation(), SFXvolume);
+				myAnimBP->jumped = true;
 				Jump();
 			}
 			else {
@@ -1523,7 +1544,7 @@ void AMyPlayerCharacter::Listen4Move(float DeltaTime){
 			}
 		}		
 	}
-	if (player->WasInputKeyJustReleased(jumpKey) || player->WasInputKeyJustReleased(jump_jKey))
+	if (interactionLevel >= 1 && (player->WasInputKeyJustReleased(jumpKey) || player->WasInputKeyJustReleased(jump_jKey)))
 	{		
 		wallRunDesire = false;
 		wallRunning = false;
@@ -1568,22 +1589,22 @@ void AMyPlayerCharacter::Listen4Look(){
 	}
 }
 void AMyPlayerCharacter::Listen4Attack(){
-	if (player->WasInputKeyJustPressed(atk1Key) || player->WasInputKeyJustPressed(atk1_jKey))
+	if (interactionLevel >= 3 && (player->WasInputKeyJustPressed(atk1Key) || player->WasInputKeyJustPressed(atk1_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("pressed atk1 key..."));
 		Attack1Press();
 	}
-	if (player->WasInputKeyJustReleased(atk1Key) || player->WasInputKeyJustReleased(atk1_jKey))
+	if (interactionLevel >= 3 && (player->WasInputKeyJustReleased(atk1Key) || player->WasInputKeyJustReleased(atk1_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("released atk1 key..."));
 		Attack1Release();
 	}
-	if (player->WasInputKeyJustPressed(atk2Key) || player->WasInputKeyJustPressed(atk2_jKey))
+	if (interactionLevel >= 3 && (player->WasInputKeyJustPressed(atk2Key) || player->WasInputKeyJustPressed(atk2_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("pressed atk2 key..."));
 		Attack2Press();
 	}
-	if (player->WasInputKeyJustReleased(atk2Key) || player->WasInputKeyJustReleased(atk2_jKey))
+	if (interactionLevel >=3 && (player->WasInputKeyJustReleased(atk2Key) || player->WasInputKeyJustReleased(atk2_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("released atk2 key..."));
 		Attack2Release();
@@ -1673,7 +1694,7 @@ void AMyPlayerCharacter::Advance(){
 }
 void AMyPlayerCharacter::Listen4Grab() {
 	//grab
-	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && !mutationGrabbed) {
+	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && !mutationGrabbed && interactionLevel >=3) {
 		mystate = grabbing;
 		ResetAnims();
 
@@ -1698,12 +1719,12 @@ void AMyPlayerCharacter::Listen4Grab() {
 		//start delayed recover to idle
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedMutationGrabToIdle, grabTime, false);
 	}
-	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && grabTarget_i >= 0 && mutationGrabbed) {
+	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && grabTarget_i >= 0 && mutationGrabbed && interactionLevel >= 3) {
 		//play prepare grabThrow animation
 		myAnimBP->attackIndex = 100;
 	}
 	//grab and throw aiming
-	if ((player->IsInputKeyDown(grabKey) || player->IsInputKeyDown(grab_jKey)) && grabTarget_i >= 0 && mutationGrabbed) {
+	if ((player->IsInputKeyDown(grabKey) || player->IsInputKeyDown(grab_jKey)) && grabTarget_i >= 0 && mutationGrabbed && interactionLevel >= 3) {
 		//aiming = true;
 		forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
 		DrawDebugLine(world, GetActorLocation(), GetActorLocation() + forthVec * throwPower, FColor::Emerald, true, 0.1f, 0, 5.0);
@@ -1715,7 +1736,7 @@ void AMyPlayerCharacter::Listen4Grab() {
 	}
 }
 void AMyPlayerCharacter::Listen4Hook() {
-	if (player->WasInputKeyJustPressed(hookKey) || player->WasInputKeyJustPressed(hook_jKey)) {
+	if (interactionLevel >= 3 && (player->WasInputKeyJustPressed(hookKey) || player->WasInputKeyJustPressed(hook_jKey))) {
 		UGameplayStatics::PlaySoundAtLocation(world, grapplePrepareSFX, GetActorLocation(), SFXvolume);
 		//freeze time
 		UGameplayStatics::SetGlobalTimeDilation(world, aimTimeDilation);
@@ -1729,7 +1750,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 		myAnimBP->attackIndex = -1;
 	}
 	//grapple aim
-	if (player->IsInputKeyDown(hookKey) || player->IsInputKeyDown(hook_jKey)) {
+	if (interactionLevel >=3 && (player->IsInputKeyDown(hookKey) || player->IsInputKeyDown(hook_jKey))) {
 		//myLoc = GetActorLocation();
 		myLoc = FollowCamera->GetComponentLocation();
 		forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
@@ -1797,7 +1818,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 
 	}
 	//throw grappling hook
-	if (player->WasInputKeyJustReleased(hookKey) || player->WasInputKeyJustReleased(hook_jKey)) {
+	if (interactionLevel >= 3 && (player->WasInputKeyJustReleased(hookKey) || player->WasInputKeyJustReleased(hook_jKey))) {
 		aiming = false;
 		if (grapleTarget_i >= 0) {
 			UGameplayStatics::PlaySoundAtLocation(world, grappleFireSFX, GetActorLocation(), SFXvolume);
@@ -1862,6 +1883,7 @@ void AMyPlayerCharacter::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherAc
 }
 */
 
+
 void AMyPlayerCharacter::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor && (OtherActor != this) && OtherComp)
@@ -1872,9 +1894,7 @@ void AMyPlayerCharacter::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent
 		//check if attacked
 		AMutationChar *myAlgoz = Cast<AMutationChar>(OtherActor);
 		if (myAlgoz) {
-			if (debugInfo)
-				GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Green, "[player OverlapBegin] my name: " + GetName() + "hit obj: " + *OtherActor->GetName());
-			
+					
 			//only call damage if not already in some damage state
 			if(mystate < evading || mystate > kdRise) {
 				myAlgoz->attackConnected = true;
@@ -2013,6 +2033,9 @@ void AMyPlayerCharacter::MyDamage(float DamagePower, bool KD, bool Spiral) {
 		Death();
 
 	recoilValue = 1.0f;
+	FRotator lookToRot = UKismetMathLibrary::FindLookAtRotation(myLoc, myLoc - damageDir * 500.0f);
+	const FRotator lookToYaw(0, lookToRot.Yaw, 0);
+	SetActorRotation(lookToYaw);
 
 	if (KD){
 		targetLocked = false;
@@ -2041,11 +2064,7 @@ void AMyPlayerCharacter::MyDamage(float DamagePower, bool KD, bool Spiral) {
 
 		myLoc = GetActorLocation();
 
-		//to start the knockDown you look to your algoz
-		FRotator lookToRot = UKismetMathLibrary::FindLookAtRotation(myLoc, myLoc - damageDir*500.0f);
-		const FRotator lookToYaw(0, lookToRot.Yaw, 0);
-		SetActorRotation(lookToYaw);
-
+		
 		//hit pause, or, in this case, time dilation
 		UGameplayStatics::SetGlobalTimeDilation(world, 0.1f);
 		//start delayed takeoff
