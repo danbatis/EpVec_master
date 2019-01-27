@@ -433,9 +433,7 @@ void AMutationChar::Tick(float DeltaTime)
 	*/
 	
 	switch(mystate){
-		case MutationStates::idle:
-			targetPos = myTarget->GetActorLocation();
-			LookTo(targetPos);
+		case MutationStates::idle:		
 			//CheckRange();
 			break;
 		case MutationStates::patrol:
@@ -497,16 +495,18 @@ void AMutationChar::Tick(float DeltaTime)
 			}
 			break;
 		case MutationStates::heightRoll:
-			//rotate, despite the name, it is actually in pitch
+			//rotate, despite the name, the maneuver is actually in pitch
 			NewRotation = FRotator(heightRollSpeed*DeltaTime, 0.0f, 0.0f);
 			QuatRotation = FQuat(NewRotation);
 			AddActorLocalRotation(QuatRotation, false, 0, ETeleportType::None);
 			//go to player's height
 			moveDir = (-1)*FVector::UpVector;
 			AddMovementInput(moveDir, 1.0f);
+			
 			//if finished roll, resume
 			if (heightRollMid) {
-				moveDir = FVector::VectorPlaneProject(GetActorForwardVector(), FVector::UpVector);
+				moveDir = FVector::VectorPlaneProject(targetPos - GetActorLocation(), FVector::UpVector);
+				moveDir.Normalize();
 				if (FMath::Acos(FVector::DotProduct(moveDir, GetActorForwardVector())) < heightRollTol) {
 					ResetFightAnims();
 				}
@@ -884,7 +884,8 @@ void AMutationChar::Navigating(float DeltaTime){
 				if (playerChar) {
 					targetVisible = true;
 					if (distToTarget < fightRange) {
-						MutationFight(DeltaTime);
+						mystate = MutationStates::fight;
+						threatened = true;
 					}
 					else {
 						movingRes = myController->MoveToLocation(targetPos, 0.5f*moveTolerance, false, !canFly, !canFly, true, 0, true);
@@ -1050,18 +1051,18 @@ void AMutationChar::MutationFight(float DeltaTime) {
 		if (distToTarget < strikeDistance) {
 			//height roll
 			if(mypos.Z > targetPos.Z + rollTolHeight){
-				CombatAction(3);
+				CombatAction(3, DeltaTime);
 			}
 			else{
-				CombatAction(0);
+				CombatAction(0, DeltaTime);
 			}
 		}
 		else {
 			if (distToTarget < 2 * strikeDistance) {
-				CombatAction(1);
+				CombatAction(1, DeltaTime);
 			}
 			else {
-				CombatAction(2);
+				CombatAction(2, DeltaTime);
 			}
 		}			
 	}
@@ -1073,13 +1074,14 @@ void AMutationChar::MutationFight(float DeltaTime) {
 		AddActorLocalRotation(QuatRotation, false, 0, ETeleportType::None);
 	}	
 }
-void AMutationChar::CombatAction(int near_i){
-	UE_LOG(LogTemp, Warning, TEXT("[combat action] Mutation %s is %d"), *GetName(), near_i);
+void AMutationChar::CombatAction(int near_i, float DeltaTime){
+	//UE_LOG(LogTemp, Warning, TEXT("[combat action] Mutation %s is %d"), *GetName(), near_i);
 	//to stop drifting when fighting
 	myCharMove->StopActiveMovement();
 	myController->StopMovement();
 	myCharMove->Velocity *= 0;
-	if (FMath::RandRange(0.0f, 1.0f) <= aggressivity && myTarget->mystate != myTarget->PlayerStates::kdRise) {
+	if (FMath::RandRange(0.0f, 1.0f) <= aggressivity && myTarget->mystate != myTarget->PlayerStates::kdRise && idleTimer <= 0.0f) {
+		
 		//attack
 		switch (near_i) {
 			case 0://close combat
@@ -1090,13 +1092,13 @@ void AMutationChar::CombatAction(int near_i){
 				MeleeAttack();
 				break;
 			case 1://middle range attacks
-				if (FMath::RandRange(0.0f, 1.0f) <= aggressivity)
+				if (FMath::RandRange(0.0f, 1.0f) <= aggressivity || threatened)
 					SpiralAttack();
 				else
 					DashSideways();
 				break;
 			case 2://long distance behaviour
-				if (FMath::RandRange(0.0f, 1.0f) <= aggressivity)
+				if (FMath::RandRange(0.0f, 1.0f) <= aggressivity || threatened)
 					Approach();
 				else
 					DashSideways();
@@ -1112,11 +1114,16 @@ void AMutationChar::CombatAction(int near_i){
 				GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("[Mutation] combatAction ID not recognized!"));
 				break;
 		}
+		threatened = false;
 	}
 	else {
+		if (idleTimer <= 0.0f) {
+			idleTimer = FMath::RandRange(minIdleTime, maxIdleTime / (3 - near_i));
+		}
+		idleTimer -= DeltaTime;
 		//wait
-		float waitTime = FMath::RandRange(minIdleTime, maxIdleTime / (3-near_i));
-		IdleWait(waitTime);
+		targetPos = myTarget->GetActorLocation();
+		LookTo(targetPos);
 	}	
 }
 
@@ -1189,12 +1196,10 @@ void AMutationChar::Investigate() {
 	myController->SetTargetVisible(false);
 	ArrivedAtGoal();
 }
-void AMutationChar::IdleWait(float WaitTime) {
-	mystate = MutationStates::idle;	
-	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::ResetFightAnims, WaitTime, false);
-}
+
 void AMutationChar::MeleeAttack() {
 	UE_LOG(LogTemp, Warning, TEXT("mutation %s in meleeAttack"), *GetName());
+	threatened = false;
 	spiralAtk = false;
 	mystate = MutationStates::attacking;
 	//myController->StopBT();
@@ -1217,6 +1222,7 @@ void AMutationChar::MeleeAttack() {
 }
 void AMutationChar::SpiralAttack() {
 	UE_LOG(LogTemp, Warning, TEXT("mutation %s in spiral attack"), *GetName());
+	threatened = false;
 	spiralAtk = true;
 	myCharMove->MaxWalkSpeed = spiralSpeed;	
 	myCharMove->MaxAcceleration = spiralAcel;
@@ -1266,7 +1272,8 @@ void AMutationChar::NextComboHit() {
 			ResetFightAnims();
 		}
 		else {
-			if (FMath::RandRange(0.0f, 1.0f) < 0.5f) {
+			//forcing to go to the left because we lack the animations for the right
+			if (FMath::RandRange(0.0f, 1.0f) < -1.0f) {
 				if (atkWalker->right) {
 					atkWalker = atkWalker->right;
 					MeleeAttack();
@@ -1309,6 +1316,7 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float
 	}
 	UE_LOG(LogTemp, Warning, TEXT("mutation %s in damage"), *GetName());
 
+	threatened = true;
 	mystate = MutationStates::suffering;
 	damageTime = DamageTime;
 
@@ -1521,7 +1529,7 @@ void AMutationChar::DelayedFromGrabRecover(){
 	
 	//enable collisions so mutations do not get throw through objects
 	//myCapsuleComp->BodyInstance.SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics, false);
-	//myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	//myCapsuleComp->SetGenerateOverlapEvents(true);
 
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::FromGrabRecover, grabRecoverTime, false);
@@ -1539,6 +1547,7 @@ void AMutationChar::FromGrabRecover() {
 	//myCapsuleComp->SetGenerateOverlapEvents(true);
 	//release it to fight
 	mystate = MutationStates::fight;
+	threatened = true;
 	DecideWhichSideFacesPlayer();
 }
 void AMutationChar::OutOfAction() {
@@ -1549,27 +1558,29 @@ void AMutationChar::OutOfAction() {
 	myCharMove->Velocity *= 0;
 	mystate = MutationStates::dizzy;
 }
-void AMutationChar::FromGrappleRecover() {
+void AMutationChar::FromGrappleRecover(float DizzyTime) {
 	OutOfAction();
 	
-	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::Stabilize, dizzyTime, false);
+	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::Stabilize, DizzyTime, false);
 }
 void AMutationChar::SetRagdoll(bool Activation) {
 	//turn off collisions on original collider
-	//myCapsuleComp->SetGenerateOverlapEvents(!Activation);
+	myCapsuleComp->SetGenerateOverlapEvents(!Activation);
 	//turn off collisions on damageDetector
 	//damageDetector->SetGenerateOverlapEvents(!Activation);
 	
-	myMesh->SetAllBodiesBelowSimulatePhysics(skeletonRootName, Activation, false);
+	//myMesh->SetAllBodiesBelowSimulatePhysics(skeletonRootName, Activation, false);
 	if (Activation) {
 		//myCapsuleComp->BodyInstance.SetCollisionEnabled(ECollisionEnabled::NoCollision, false);		
-		//myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		myMesh->SetAllBodiesBelowPhysicsBlendWeight(skeletonRootName, 1.0f, false, false);
+		myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		//myMesh->SetAllBodiesBelowPhysicsBlendWeight(skeletonRootName, 1.0f, false, false);
+		UE_LOG(LogTemp, Warning, TEXT("[mutation] without collision"));
 	}
 	else{
 		//myCapsuleComp->BodyInstance.SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics, false);
-		//myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		myMesh->SetAllBodiesBelowPhysicsBlendWeight(skeletonRootName, 0.0f, false, false);
+		myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		UE_LOG(LogTemp, Warning, TEXT("[mutation grab] collision enabled"));
+		//myMesh->SetAllBodiesBelowPhysicsBlendWeight(skeletonRootName, 0.0f, false, false);
 		myController->RestartBT();
 	}
 }

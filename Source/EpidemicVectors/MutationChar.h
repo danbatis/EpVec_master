@@ -198,6 +198,8 @@ public:
 	bool knockingDown;
 	bool attackConnected;
 	bool spiralAtk;
+	bool threatened;
+	float idleTimer;
 	USkeletalMeshComponent * myMesh;
 	UCapsuleComponent* myCapsuleComp;
 	AVectorsGameStateBase *myGameState;
@@ -216,7 +218,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float flyStopFactor = 2.5f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") bool startAirborne = false;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float grabRecoverTime = 1.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") float dizzyTime = 0.5f;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") FName skeletonRootName = "joint1";
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MutationAI") FMutAtkNode spiralAtkNode;
 	UPROPERTY(EditAnywhere, Category = "MutationAI") TArray<FMutAtkNode> attackList;
@@ -231,7 +233,7 @@ public:
 
 	void NewGoal(bool Flying);
 	void DelayedFromGrabRecover();
-	void FromGrappleRecover();
+	void FromGrappleRecover(float DizzyTime);
 	void OutOfAction();
 	void Stabilize();
 	void GrabThrow(FVector GrabThrowDir, float GrabThrowSpeed);
@@ -267,12 +269,11 @@ private:
 	void StopLethal();
 	void Investigate();
 
-	void IdleWait(float WaitTime);
 	void MeleeAttack();	
 	void SpiralAttack();
 	void Approach();
 	void DashSideways();
-	void CombatAction(int near_i);
+	void CombatAction(int near_i, float DeltaTime);
 
 	void NextComboHit();
 	void CancelAttack();

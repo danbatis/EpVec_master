@@ -190,6 +190,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) float grappleTol = 0.1f;
 	UPROPERTY(EditAnywhere, Category = Combat) float dashAnimGain = 0.5f;
 	UPROPERTY(EditAnywhere, Category = Combat) float dashTime = 0.5f;
+	UPROPERTY(EditAnywhere, Category = Combat) float mutationDizzyTime = 0.5f;
 	UPROPERTY(EditAnywhere, Category = Combat) float hookRange = 1500.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float hookSpeed = 100.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float recoverStaminaDelay = 1.0f;
@@ -223,7 +224,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float riseAtkCoolDown = 0.3f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float throwHookTime = 0.3f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float hookReturnTime = 0.3f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float hookReleaseUpVel = 1600.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float hookReleaseGravity = 0.2f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float hookReleaseReactTime = 0.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float hookFlightGain = 1.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float grabReleaseReactTime = 1.2f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float hookReleaseUpVel = 100.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float grabTime = 0.5f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float hitPause = 0.01f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FName grabbingHandSocket = "vanq_LeftHand";
@@ -453,6 +458,7 @@ private:
 	void StopDoubleAirJump();
 	void StopLand();
 	void GrabThrow();
+	void LockTarget(bool active);
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
