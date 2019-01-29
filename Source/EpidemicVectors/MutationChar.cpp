@@ -433,8 +433,14 @@ void AMutationChar::Tick(float DeltaTime)
 	*/
 	
 	switch(mystate){
-		case MutationStates::idle:		
-			//CheckRange();
+		case MutationStates::idle:
+			idleTimer -= DeltaTime;
+			if (idleTimer <= 0.0f) {
+				ResetFightAnims();
+			}
+			//wait
+			targetPos = myTarget->GetActorLocation();
+			LookTo(targetPos);
 			break;
 		case MutationStates::patrol:
 			Navigating(DeltaTime);
@@ -1080,7 +1086,7 @@ void AMutationChar::CombatAction(int near_i, float DeltaTime){
 	myCharMove->StopActiveMovement();
 	myController->StopMovement();
 	myCharMove->Velocity *= 0;
-	if (FMath::RandRange(0.0f, 1.0f) <= aggressivity && myTarget->mystate != myTarget->PlayerStates::kdRise && idleTimer <= 0.0f) {
+	if (FMath::RandRange(0.0f, 1.0f) <= aggressivity && myTarget->mystate != myTarget->PlayerStates::kdRise) {
 		
 		//attack
 		switch (near_i) {
@@ -1117,13 +1123,9 @@ void AMutationChar::CombatAction(int near_i, float DeltaTime){
 		threatened = false;
 	}
 	else {
-		if (idleTimer <= 0.0f) {
-			idleTimer = FMath::RandRange(minIdleTime, maxIdleTime / (3 - near_i));
-		}
-		idleTimer -= DeltaTime;
 		//wait
-		targetPos = myTarget->GetActorLocation();
-		LookTo(targetPos);
+		idleTimer = FMath::RandRange(minIdleTime, maxIdleTime / (3 - near_i));
+		mystate = MutationStates::idle;				
 	}	
 }
 
@@ -1455,19 +1457,20 @@ void AMutationChar::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 	if (OtherActor && (OtherActor != this) && OtherComp)
 	{
 		if (debugInfo) {
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[OverlapBegin] my name: " + GetName() + "hit obj: " + *OtherActor->GetName());
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[OverlapBegin] my name: " + GetName() + " hit obj: " + *OtherActor->GetName());
 		}
 
 		myTarget = Cast<AMyPlayerCharacter>(OtherActor);
 		if (myTarget) {
-			if (OtherComp->GetName() == myTarget->swordComp->GetName() || (OtherComp->GetName() == myTarget->hookComp->GetName() && !myTarget->waiting4HookConn)) {
-				if (mystate != MutationStates::suffering && mystate != MutationStates::kdFlight && mystate != MutationStates::grabbed) {
+			if (OtherComp->GetName() == myTarget->swordComp->GetName() || (OtherComp->GetName() == myTarget->hookComp->GetName() && !myTarget->waiting4HookCol)) {
+				if (mystate != MutationStates::kdFlight && mystate != MutationStates::grabbed) {
 					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown, myTarget->attackPush, myTarget->atkPushTime);
 				}
 			}
 			else {
 				//check if grab
 				if (OtherComp->GetName() == myTarget->grabComp->GetName()) {
+					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, "[Mutation grabbed] my name: " + GetName() + " hit obj: " + *OtherActor->GetName());
 					if (grabable_i >= 0 && !myTarget->mutationGrabbed) {
 						thrownByPlayer = false;
 						CancelAttack();
@@ -1510,8 +1513,7 @@ void AMutationChar::OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 	if (OtherActor && (OtherActor != this) && OtherComp)
 	{
 		if (debugInfo) {
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Black, FString::Printf(TEXT("[OverlapEnd] my name: %s hitObj %s compName %s otherIndex %d"), *GetName(), *OtherActor->GetName(), *OtherComp->GetName(), OtherBodyIndex));
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("[algoz] %d"), myTarget->mystate));
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Black, FString::Printf(TEXT("[OverlapEnd] my name: %s hitObj %s compName %s otherIndex %d"), *GetName(), *OtherActor->GetName(), *OtherComp->GetName(), OtherBodyIndex));			
 		}
 	}
 }

@@ -141,7 +141,8 @@ public:
 	float startedHold2;
 	float mytime;
 	float startReorient;
-	bool waiting4HookConn;
+	bool waiting4HookCol;
+	bool hookReturning;
 
 	UPROPERTY(EditAnywhere, Category = Combat)bool debugInfo;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) bool follwdBarShow;
@@ -382,6 +383,7 @@ private:
 	bool dashDesire;
 	bool arising;
 	bool waiting4Hook;	
+	bool waiting4HookConn;
 	bool waiting4GrabThrow;
 	FVector hookRelPos;
 	FQuat hookRelRot;
