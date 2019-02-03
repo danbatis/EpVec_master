@@ -526,6 +526,9 @@ void AMutationChar::Tick(float DeltaTime)
 				SetActorRotation(someRotation);
 			}
 			break;
+		case MutationStates::dizzy:
+			GEngine->AddOnScreenDebugMessage(-1, 0.2f, FColor::Orange, "[mutation] dizzy.");
+			break;
 	}
 	
 	/*
@@ -1379,12 +1382,12 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float
 	}	
 }
 void AMutationChar::Death() {
-	if (debugInfo) {
-		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[Mutation %s] is dead"+GetName());
-	}
-
+	myWorld->GetTimerManager().ClearTimer(timerHandle);
 	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
-
+	if (debugInfo) {
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[Mutation %s] is dead" + GetName());		
+	}
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow, "time should be normal again...");
 	//check if player was locked to me and disengage targetlock if so
 	myTarget->MutationDied(mutation_i);
 
@@ -1530,6 +1533,7 @@ void AMutationChar::DelayedFromGrabRecover(){
 	thrownTime = mytime;
 	
 	//enable collisions so mutations do not get throw through objects
+	myCapsuleComp->SetGenerateOverlapEvents(true);
 	//myCapsuleComp->BodyInstance.SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics, false);
 	myCapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	//myCapsuleComp->SetGenerateOverlapEvents(true);

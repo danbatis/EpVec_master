@@ -12,10 +12,6 @@ void AVectorsGameStateBase::BeginPlay()
 	grappables.Empty();
 	grabables.Empty();
 
-	int grabable_i = 0;
-	int grappable_i = 0;
-	int mutation_i = 0;
-
 	//find grappable elements that are not mosquitos
 	for (TActorIterator<AGrappable> itr(world, AGrappable::StaticClass()); itr; ++itr)
 	{

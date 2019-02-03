@@ -694,6 +694,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		//check for fast recover, if right before start falling down
 		if (FMath::Abs(myVel.Z) < quickRecoverSpeedTgt) {
 			if (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey)) {
+				CancelAttack();
 				myAnimBP->damageIndex = 25;
 				mystate = kdGround;
 				myCharMove->StopMovementImmediately();
@@ -714,9 +715,11 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 			GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedKDground, recoverTime, false);
 		}
 		Listen4Look();
+		Reorient();
 		break;
 	case kdGround:
 		Listen4Look();
+		Reorient();
 		break;
 	case kdRise:
 		if (!arising) {
@@ -745,10 +748,9 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				myAnimBP->damageIndex = 32;
 				mystate = attacking;
 				UGameplayStatics::PlaySoundAtLocation(world, seesawRiseSFX, GetActorLocation(), SFXvolume);
-				if (swordComp)
-					Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
-				advanceAtk = 1.0f;
-				GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedAtkRise, seesawRiseTime, false);
+				advanceAtk = 0.0f;
+
+				GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedSeeSawRise, seesawRisePrepGain*seesawRiseTime, false);
 			}
 			if (player->WasInputKeyJustReleased(atk2Key) || vertIn > 0.0f || player->WasInputKeyJustReleased(atk2_jKey)) {
 				//simple rise
@@ -759,6 +761,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 			}
 		}
 		Listen4Look();
+		Reorient();
 		break;
 	case grabbing:
 		if (inAir) {
@@ -1413,6 +1416,7 @@ void AMyPlayerCharacter::StopLethal(){
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::NextComboHit, time4NextHit, false);
 }
 void AMyPlayerCharacter::Relax(){
+	world->GetTimerManager().ClearTimer(timerHandle);
 	ResetAnims();
 	ResetSpeeds();
 	
@@ -1429,9 +1433,8 @@ void AMyPlayerCharacter::Relax(){
 	if (swordComp)
 		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(false);
 	if (hookComp)
-		Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(false);
+		Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(false);	
 	
-	world->GetTimerManager().ClearTimer(timerHandle);
 	if (debugInfo)
 		GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("relaxed!"));
 }
@@ -1842,7 +1845,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 			//check if mutation grappable or grappable point
 			AMutationChar* maybeMutation = Cast<AMutationChar>(hitres.Actor.Get());
 			if (maybeMutation) {
-				if (maybeMutation->grabable) {
+				if (maybeMutation->grappable) {
 					grapleTarget_i = maybeMutation->grappable_i;
 					//and make the correspondent UI hint green
 					crossHairColor = FColor::Emerald;
@@ -2257,6 +2260,13 @@ void AMyPlayerCharacter::DelayedAtkRise() {
 		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(false);
 		
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::Relax, riseAtkCoolDown, false);
+}
+void AMyPlayerCharacter::DelayedSeeSawRise() {
+	advanceAtk = seesawRiseAdvance;
+	knockingDown = true;
+	if (swordComp)
+		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
+	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedAtkRise, (1.0f- seesawRisePrepGain)*seesawRiseTime, false);
 }
 void AMyPlayerCharacter::DelayedMutationGrabToIdle() {
 	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, "[player] called grab2idle.");

@@ -220,6 +220,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float quickRecoverSpeedTgt = 100.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float knockDownUpFactor = 0.8f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float riseTime = 0.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float seesawRisePrepGain = 0.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float seesawRiseAdvance = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float seesawRiseTime = 0.6f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float spinRiseTime = 0.8f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float riseAtkCoolDown = 0.3f;
@@ -455,6 +457,7 @@ private:
 	void HookFail();
 	void HookReturn();
 	void DelayedMutationGrabToIdle();
+	void DelayedSeeSawRise();
 	void KnockDownFlight();
 	void Death();
 	void StopDoubleAirJump();

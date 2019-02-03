@@ -24,11 +24,15 @@ public:
 	void InitLists();
 	void RemoveMutation(int Mutation_i, int Grab_i, int Grap_i);
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) int grabable_i = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) int grappable_i = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) int mutation_i = 0;
+
 	UWorld* world;
 	//to store all mutations in scene
-	TArray<AMutationChar*> mutations;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<AMutationChar*> mutations;
 	//all grappable elements
-	TArray<AActor*> grappables;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<AActor*> grappables;
 	//all grabable elements
-	TArray<AMutationChar*> grabables;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<AMutationChar*> grabables;
 };
