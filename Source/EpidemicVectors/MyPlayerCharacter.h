@@ -20,6 +20,7 @@
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
 
+
 //#include "Runtime/Engine/Classes/Components/StaticMeshComponent.h"
 #include "AnimComm.h"
 #include "Perception/PawnSensingComponent.h"
@@ -48,6 +49,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") float pushForce;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") float pushTime;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") bool knockDown;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat") bool leftAttack;
 
 	FAtkNode* left;
 	FAtkNode* right;
@@ -162,8 +164,9 @@ public:
 	bool knockingDown;
 	float attackPush;
 	float atkPushTime;
-	int grabTarget_i = -1;
+	
 	bool mutationGrabbed;
+	AMutationChar *grabbedMutation;
 	
 	UPROPERTY(EditAnywhere, Category = Movement) float normalGravity=1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement) float normalSpeed;
@@ -278,7 +281,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) FAtkNode superHitR;
 	//combo variables
 	TArray<FAtkNode> attackChain;
-	TArray<bool> atkRightSideChain;
 	bool attackLocked;
 	bool airAttackLocked;
 	float attackPower;
@@ -286,6 +288,21 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) TArray<FAtkNode> attackList;
 	UPROPERTY(EditAnywhere, Category = Combat) TArray<FAtkNode> attackAirList;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* swordVFX;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* clawVFX;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* rangedSwordVFX;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* groundPunchVFX;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") FName atkTrailSocket1L;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") FName atkTrailSocket2L;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") FName atkTrailSocket1R;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") FName atkTrailSocket2R;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* mainThrustVFX;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* turboThrustVFX;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthL;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthR;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthSuperL;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthSuperR;
+
 	UPROPERTY(EditAnywhere, Category = "SFX") float SFXvolume = 1.0f;
 	UPROPERTY(EditAnywhere, Category = "SFX") USoundBase* ChargeSlashL_iSFX;
 	UPROPERTY(EditAnywhere, Category = "SFX") USoundBase* ChargeSlashL_endSFX;
@@ -366,12 +383,13 @@ private:
 	APlayerController* player;
 	FAtkNode* atkWalker;
 	AMutationChar *hookedMutation;
+	AActor* hookedActor;	
 	
 	FCollisionQueryParams RayParams;
 	FHitResult hitres;
 	
 	INT32 width, height;	
-	int grapleTarget_i = -1;
+	
 	bool aiming;
 	float grappleValue;
 	bool targetLocked = false;

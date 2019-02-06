@@ -198,8 +198,7 @@ void AMyPlayerCharacter::BeginPlay()
 	
 	//to signal there is no target selected or locked
 	target_i = -1;
-	grabTarget_i = -1;
-	grapleTarget_i = -1;
+		
 	myGameState = Cast<AVectorsGameStateBase>(world->GetGameState());
 	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, "Finished beginPlay on player.");
 }
@@ -216,6 +215,9 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	if(interactionLevel >= 1){
 		vertIn = player->GetInputAnalogKeyState(vertical_Up) + (-1)*player->GetInputAnalogKeyState(vertical_Down) + player->GetInputAnalogKeyState(vertical_j);
 		horIn = player->GetInputAnalogKeyState(horizontal_R) + (-1)*player->GetInputAnalogKeyState(horizontal_L) + player->GetInputAnalogKeyState(horizontal_j);
+
+		if (vertIn <= 0.0f)
+			mainThrustVFX->Deactivate();
 	}
 	else {
 		vertIn = 0.0f; horIn = 0.0f;
@@ -301,10 +303,11 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 			dashPowerRate = dashForthRate;
 			dashDirH = 0.0f;
 			dashDirV = 1.0f;
+			turboThrustVFX->Activate();
 		}
 		else{
 			if(!dashLocked){
-				//if no move axe input, evade backwards
+				//if no move in axe input, evade backwards
 				if (vertIn == 0.0f && horIn == 0.0f) {
 					UGameplayStatics::PlaySoundAtLocation(world, evadeSFX, GetActorLocation(), SFXvolume);
 					mystate = evading;
@@ -319,6 +322,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 					dashPowerRate = evadeRate;
 					dashDirV = vertIn;
 					dashDirH = horIn;
+					turboThrustVFX->Activate();
 				}
 			}
 		}
@@ -338,6 +342,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	}
 	if(!dashDesire && mystate != evading && dashStart != 0.0f) {	
 		//dash button released, stop turboForth
+		turboThrustVFX->Deactivate();
 		dashLocked = false;
 		dashing = false;
 		ResetSpeeds();
@@ -579,9 +584,9 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		}
 		break;
 	case hookFlying:
-		if (grapleTarget_i >= 0) {
+		if (hookedActor) {
 			myLoc = GetActorLocation();
-			targetLoc = myGameState->grappables[grapleTarget_i]->GetActorLocation();
+			targetLoc = hookedActor->GetActorLocation();
 			targetDir = targetLoc - myLoc;
 			distToTarget = targetDir.Size();
 			targetDir.Normalize();
@@ -608,8 +613,8 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 
 				//release mutation and set it to be dizzy
 				AMutationChar* maybeMutation;
-				if (grapleTarget_i >= 0) {
-					maybeMutation = Cast<AMutationChar>(myGameState->grappables[grapleTarget_i]);
+				if(hookedActor) {
+					maybeMutation = Cast<AMutationChar>(hookedActor);
 					if (maybeMutation) {
 						maybeMutation->FromGrappleRecover(mutationDizzyTime);
 						target_i = -1;
@@ -625,7 +630,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 						*/
 					}
 				}
-				grapleTarget_i = -1;
+				hookedActor = NULL;
 
 				ResetAnims();
 				GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Red, TEXT("returning to idle from hook flight!"));
@@ -984,7 +989,7 @@ void AMyPlayerCharacter::ReportFinishHookThrow() {
 		myCharMove->MovementMode = MOVE_Flying;
 		
 		//give it speed
-		targetLoc = myGameState->grappables[grapleTarget_i]->GetActorLocation();
+		targetLoc = hookedActor->GetActorLocation();
 		hookDir = targetLoc - hookPos;	
 		//hookDir = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
 
@@ -1147,6 +1152,11 @@ void AMyPlayerCharacter::MoveForward(float Value)
 		if(lookInCamDir)
 			Look2Dir(forthVec);
 		AddMovementInput(forthVec, Value);
+
+		if(Value > 0.0f)
+			mainThrustVFX->Activate();
+		else
+			mainThrustVFX->Deactivate();
 		//myCharMove->Velocity = forthVec * Value * myspeed;
 	}
 }
@@ -1223,7 +1233,7 @@ void AMyPlayerCharacter::KnockDownHit(bool left) {
 	attackPower = attackKDPower;
 	
 	float relaxTime;
-	if(left){
+	if(left){ //Ground Punch
 		//become lethal
 		if (hookComp)
 			Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(true);
@@ -1231,6 +1241,7 @@ void AMyPlayerCharacter::KnockDownHit(bool left) {
 		//superHitL.myAnim->RateScale = superHitL.speed;
 		UGameplayStatics::PlaySoundAtLocation(world, ChargeSlashL_endSFX, GetActorLocation(), SFXvolume);
 		//myMesh->PlayAnimation(superHitL.myAnim, false);
+		groundPunchVFX->BeginTrails(atkTrailSocket1L, atkTrailSocket2L, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthSuperL);
 		myAnimBP->PlaySlotAnimationAsDynamicMontage(
 			superHitL.myAnim,
 			"DefaultSlot",
@@ -1245,13 +1256,14 @@ void AMyPlayerCharacter::KnockDownHit(bool left) {
 		atkPushTime = superHitL.pushTime;
 		relaxTime = superHitL.myAnim->SequenceLength/superHitL.speed;
 	}
-	else{
+	else{ //Ranged Slash
 		//become lethal
 		if (swordComp)
 			Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
 
 		//superHitR.myAnim->RateScale = superHitR.speed;
 		UGameplayStatics::PlaySoundAtLocation(world, ChargeSlashR_endSFX, GetActorLocation(), SFXvolume);
+		rangedSwordVFX->BeginTrails(atkTrailSocket1R, atkTrailSocket2R, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthSuperR);
 		//myMesh->PlayAnimation(superHitR.myAnim, false);
 		myAnimBP->PlaySlotAnimationAsDynamicMontage(
 			superHitR.myAnim,
@@ -1302,8 +1314,7 @@ void AMyPlayerCharacter::AttackWalk(bool left){
 			if (atkWalker->left != NULL) {
 				atkWalker = atkWalker->left;
 				//myCharMove->bOrientRotationToMovement = false;
-				attackChain.Add(*atkWalker);
-				atkRightSideChain.Add(false);
+				attackChain.Add(*atkWalker);				
 			}
 			else {
 				if(inAir)
@@ -1316,8 +1327,7 @@ void AMyPlayerCharacter::AttackWalk(bool left){
 			if (atkWalker->right != NULL) {
 				atkWalker = atkWalker->right;
 				//myCharMove->bOrientRotationToMovement = false;
-				attackChain.Add(*atkWalker);
-				atkRightSideChain.Add(true);
+				attackChain.Add(*atkWalker);				
 			}
 			else {
 				if(inAir)
@@ -1332,7 +1342,6 @@ void AMyPlayerCharacter::NextComboHit(){
 	if (atkIndex >= attackChain.Num()){
 		//reset attackChain
 		attackChain.Empty();
-		atkRightSideChain.Empty();
 		atkIndex = 0;
 		atkChainIndex = 0;
 		airAttackLocked = true;
@@ -1372,7 +1381,8 @@ void AMyPlayerCharacter::NextComboHit(){
 		}
 		else{
 			advanceAtk = attackChain[atkIndex].advanceAtkValue;
-		}		
+		}
+		
 		myAnimBP->PlaySlotAnimationAsDynamicMontage(
 			attackChain[atkIndex].myAnim, 
 			"DefaultSlot", 
@@ -1393,13 +1403,17 @@ void AMyPlayerCharacter::StartLethal(){
 	UGameplayStatics::PlaySoundAtLocation(world, BasicSlashSFX, GetActorLocation(), SFXvolume);
 	updateAtkDir = false;
 
-	if (atkRightSideChain[atkIndex]) {
-		if (swordComp)
-			Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
-	}
-	else {
+	if (attackChain[atkIndex].leftAttack) {
 		if (hookComp)
 			Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(true);
+
+		clawVFX->BeginTrails(atkTrailSocket1L, atkTrailSocket2L, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthL);;
+	}
+	else {
+		if (swordComp)
+			Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
+
+		swordVFX->BeginTrails(atkTrailSocket1R, atkTrailSocket2R, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthR);
 	}
 
 	float time2NotLethal = attackChain[atkIndex].lethalTime*(attackChain[atkIndex].myAnim->SequenceLength / attackChain[atkIndex].speed);
@@ -1414,6 +1428,10 @@ void AMyPlayerCharacter::StopLethal(){
 	float time4NextHit = (1-(attackChain[atkIndex].time2lethal+attackChain[atkIndex].lethalTime))*(attackChain[atkIndex].myAnim->SequenceLength / attackChain[atkIndex].speed);
 	atkIndex++;
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::NextComboHit, time4NextHit, false);
+	swordVFX->EndTrails();
+	clawVFX->EndTrails();
+	rangedSwordVFX->EndTrails();
+	groundPunchVFX->EndTrails();
 }
 void AMyPlayerCharacter::Relax(){
 	world->GetTimerManager().ClearTimer(timerHandle);
@@ -1459,8 +1477,15 @@ void AMyPlayerCharacter::CancelAttack() {
 	world->GetTimerManager().ClearTimer(timerHandle);
 	CancelKnockDownPrepare(true);
 	CancelKnockDownPrepare(false);
+	
+	mainThrustVFX->Deactivate();
+	turboThrustVFX->Deactivate();
+	swordVFX->EndTrails();
+	clawVFX->EndTrails();
+	rangedSwordVFX->EndTrails();
+	groundPunchVFX->EndTrails();
+	
 	attackChain.Empty();
-	atkRightSideChain.Empty();
 	atkIndex = 0;
 	atkChainIndex = 0;
 	airAttackLocked = false;
@@ -1517,7 +1542,8 @@ void AMyPlayerCharacter::Listen4Dash() {
 	if (!dashing && interactionLevel >= 2 && (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey))) {
 		dashDesire = true;
 		dashStart = mytime;
-		CancelAttack();
+		if(mystate == attacking)
+			CancelAttack();
 		landing = false;
 	}
 	if (player->WasInputKeyJustReleased(dashKey) || player->WasInputKeyJustReleased(dash_jKey)) {
@@ -1760,7 +1786,7 @@ void AMyPlayerCharacter::Listen4Grab() {
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedMutationGrabToIdle, grabTime, false);
 	}
 	//grab aim
-	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && grabTarget_i >= 0 && mutationGrabbed && interactionLevel >= 3) {
+	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && mutationGrabbed && interactionLevel >= 3) {
 		//play prepare grabThrow animation
 		myAnimBP->attackIndex = 100;
 
@@ -1768,7 +1794,7 @@ void AMyPlayerCharacter::Listen4Grab() {
 		UGameplayStatics::SetGlobalTimeDilation(world, aimTimeDilation);
 	}
 	//grab aiming
-	if ((player->IsInputKeyDown(grabKey) || player->IsInputKeyDown(grab_jKey)) && grabTarget_i >= 0 && mutationGrabbed && interactionLevel >= 3) {
+	if ((player->IsInputKeyDown(grabKey) || player->IsInputKeyDown(grab_jKey)) && mutationGrabbed && interactionLevel >= 3) {
 		//aiming = true;
 		myLoc = GetActorLocation();
 		forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
@@ -1785,7 +1811,7 @@ void AMyPlayerCharacter::Listen4Grab() {
 		SetActorRotation(lookToTarget);
 	}
 	//throw mutation
-	if ((player->WasInputKeyJustReleased(grabKey) || player->WasInputKeyJustReleased(grab_jKey)) && grabTarget_i >= 0) {
+	if ((player->WasInputKeyJustReleased(grabKey) || player->WasInputKeyJustReleased(grab_jKey)) && mutationGrabbed) {
 		myAnimBP->attackIndex = 101;
 		waiting4GrabThrow = true;
 		UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
@@ -1820,7 +1846,6 @@ void AMyPlayerCharacter::Listen4Hook() {
 		forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
 		FVector targetPos = myLoc + forthVec * (hookRange + disengageHookDist);
 		if (debugInfo) {
-			//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Green, FString::Printf(TEXT("grappleTarget: %d screenPos X: %f Y: %f"), grapleTarget_i, targetScreenPos.X, targetScreenPos.Y));
 			DrawDebugLine(world, myLoc, targetPos, FColor::Green, true, 0.01f, 0, 5.0);
 		}
 		
@@ -1833,7 +1858,6 @@ void AMyPlayerCharacter::Listen4Hook() {
 
 		//do the aiming with the grappables
 		grappleValue = 10.0f;
-		grapleTarget_i = -1;
 		crossHairColor = FColor::Silver;
 		FVector2D grapScreenPos;
 
@@ -1846,7 +1870,8 @@ void AMyPlayerCharacter::Listen4Hook() {
 			AMutationChar* maybeMutation = Cast<AMutationChar>(hitres.Actor.Get());
 			if (maybeMutation) {
 				if (maybeMutation->grappable) {
-					grapleTarget_i = maybeMutation->grappable_i;
+					hookedMutation = maybeMutation;
+					hookedActor = hitres.Actor.Get();
 					//and make the correspondent UI hint green
 					crossHairColor = FColor::Emerald;
 				}
@@ -1857,7 +1882,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 			else {
 				AGrappable* maybeGrapPoint = Cast<AGrappable>(hitres.Actor.Get());
 				if (maybeGrapPoint) {
-					grapleTarget_i = maybeGrapPoint->grappable_i;
+					hookedActor = hitres.Actor.Get();
 					//and make the correspondent UI hint green
 					crossHairColor = FColor::Emerald;
 				}
@@ -1869,33 +1894,16 @@ void AMyPlayerCharacter::Listen4Hook() {
 		else {
 			//not a valid target
 		}
-
-		/*
-		//turn on UI hints for all visible grappling points
-		for (int i = 0; i < myGameState->grappables.Num(); ++i) {
-			targetLoc = myGameState->grappables[i]->GetActorLocation();
-			targetDir = targetLoc - myLoc;
-			distToTarget = targetDir.Size();
-			player->ProjectWorldLocationToScreen(targetLoc, grapScreenPos, false);
-			grapScreenPos.X /= width;
-			grapScreenPos.Y /= height;
-			inviewport = grapScreenPos.X > 0 && grapScreenPos.X < 1 && grapScreenPos.Y>0 && grapScreenPos.Y < 1;
-			float currGrappleValue = FVector2D::Distance(grapScreenPos, targetScreenPos);
-			if (inviewport) {
-				//show UI hint
-			}
-		}
-		*/
-
+		
 	}
 	//throw grappling hook
 	if (interactionLevel >= 3 && aiming && !mutationGrabbed && (player->WasInputKeyJustReleased(hookKey) || player->WasInputKeyJustReleased(hook_jKey))) {
 		aiming = false;
-		if (grapleTarget_i >= 0) {
+		if (hookedActor) {
 			hookReturning = false;
 			UGameplayStatics::PlaySoundAtLocation(world, grappleFireSFX, GetActorLocation(), SFXvolume);
 			myLoc = GetActorLocation();
-			targetLoc = myGameState->grappables[grapleTarget_i]->GetActorLocation();
+			targetLoc = hookedActor->GetActorLocation();
 			targetDir = targetLoc - myLoc;
 			distToTarget = targetDir.Size();
 			
@@ -1905,8 +1913,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 			//play animation to throw hook
 			myAnimBP->attackIndex = 1;
 
-			//stop mutation actions if it is a mutation
-			hookedMutation = Cast<AMutationChar>(myGameState->grappables[grapleTarget_i]);
+			//stop mutation actions if it is a mutation			
 			if (hookedMutation)
 				hookedMutation->OutOfAction();
 
@@ -2053,12 +2060,13 @@ void AMyPlayerCharacter::HookOverlap(UPrimitiveComponent* OverlappedComponent, A
 		world->GetTimerManager().ClearTimer(timerHandle);
 
 		//check if mutation or grapple point
-		AMutationChar * maybeMutation = Cast<AMutationChar>(OtherActor);
-		if (maybeMutation) {
-			if (maybeMutation->grabable) {
+		hookedMutation = Cast<AMutationChar>(OtherActor);
+		if (hookedMutation) {
+			if (hookedMutation->grabable) {
 				UGameplayStatics::PlaySoundAtLocation(world, grapConnMutationSFX, GetActorLocation(), SFXvolume);
+				hookedActor = OtherActor;
 				HookConnect();
-				maybeMutation->Grappled();
+				hookedMutation->Grappled();
 			}
 			else {
 				//hook fail
@@ -2070,6 +2078,7 @@ void AMyPlayerCharacter::HookOverlap(UPrimitiveComponent* OverlappedComponent, A
 			AGrappable * maybeGrapPoint = Cast<AGrappable>(OtherActor);
 			if (maybeGrapPoint) {
 				UGameplayStatics::PlaySoundAtLocation(world, grapConnPointSFX, GetActorLocation(), SFXvolume);
+				hookedActor = OtherActor;
 				HookConnect();
 			}
 			else {
@@ -2183,6 +2192,9 @@ void AMyPlayerCharacter::HookReturn() {
 	if (hookedMutation)
 		hookedMutation->Stabilize();
 
+	hookedMutation = NULL;
+	hookedActor = NULL;
+
 	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
 	this->CustomTimeDilation = 1.0f;
 
@@ -2193,11 +2205,8 @@ void AMyPlayerCharacter::HookReturn() {
 	myCharMove->StopMovementImmediately();
 	myCharMove->StopActiveMovement();
 	myCharMove->MovementMode = MOVE_Walking;
-	GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("[player] hook returning: %d"), grapleTarget_i));
-	if (grapleTarget_i >= 0) {		
-		grapleTarget_i = -1;
-	}
-	
+	GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("[player] hook returning")));
+		
 	//handpos - hookpos
 	FVector hookArmPos = myMesh->GetSocketLocation(hookSocket);
 	hookDir = hookArmPos - hookPos;
@@ -2259,6 +2268,7 @@ void AMyPlayerCharacter::DelayedAtkRise() {
 	if (swordComp)
 		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(false);
 		
+	swordVFX->BeginTrails(atkTrailSocket1R, atkTrailSocket2R, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthR);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::Relax, riseAtkCoolDown, false);
 }
 void AMyPlayerCharacter::DelayedSeeSawRise() {
@@ -2266,6 +2276,8 @@ void AMyPlayerCharacter::DelayedSeeSawRise() {
 	knockingDown = true;
 	if (swordComp)
 		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
+
+	swordVFX->BeginTrails(atkTrailSocket1R, atkTrailSocket2R, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthR);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedAtkRise, (1.0f- seesawRisePrepGain)*seesawRiseTime, false);
 }
 void AMyPlayerCharacter::DelayedMutationGrabToIdle() {
@@ -2324,26 +2336,25 @@ void AMyPlayerCharacter::ReportGrabThrow() {
 		GrabThrow();
 	}
 }
-void AMyPlayerCharacter::GrabThrow() {
+void AMyPlayerCharacter::GrabThrow(){
 	//aiming = false;
 	UGameplayStatics::PlaySoundAtLocation(world, grabThrowSFX, GetActorLocation(), SFXvolume);
-	//reposition the parent			
-	AMutationChar *thisMutation = myGameState->grabables[grabTarget_i];
 
-	thisMutation->SetActorLocation(grabComp->GetSocketLocation(grabbingHandSocket) + throwOffsetHeight * FVector::UpVector);
-	thisMutation->SetActorRotation(grabComp->GetSocketRotation(grabbingHandSocket));
+	//reposition the parent
+	grabbedMutation->SetActorLocation(grabComp->GetSocketLocation(grabbingHandSocket) + throwOffsetHeight * FVector::UpVector);
+	grabbedMutation->SetActorRotation(grabComp->GetSocketRotation(grabbingHandSocket));
 	//reparent
-	thisMutation->myMesh->RemoveSocketOverrides(grabbingHandSocket);
-	thisMutation->myMesh->AttachToComponent(thisMutation->myCapsuleComp, FAttachmentTransformRules::KeepRelativeTransform);
+	grabbedMutation->myMesh->RemoveSocketOverrides(grabbingHandSocket);
+	grabbedMutation->myMesh->AttachToComponent(grabbedMutation->myCapsuleComp, FAttachmentTransformRules::KeepRelativeTransform);
 	//reset the offset with parent
-	thisMutation->myMesh->SetRelativeLocation(thisMutation->positionOffset);
-	thisMutation->myMesh->SetRelativeRotation(thisMutation->rotationOffset);
+	grabbedMutation->myMesh->SetRelativeLocation(grabbedMutation->positionOffset);
+	grabbedMutation->myMesh->SetRelativeRotation(grabbedMutation->rotationOffset);
 
 	//throw him
 	forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
-	thisMutation->GrabThrow(forthVec, throwPower);
+	grabbedMutation->GrabThrow(forthVec, throwPower);
 	
-	grabTarget_i = -1;
+	grabbedMutation = NULL;
 	mutationGrabbed = false;
 }
 void AMyPlayerCharacter::StopDoubleAirJump() {

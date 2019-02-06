@@ -1344,42 +1344,44 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float
 	}
 
 	life -= DamagePower;
-	if (life <= 0)
+	if (life <= 0) {
 		Death();
-
-	recoilPortion = RecoilForce;
-	//play damage animation
-	if (KD) {
-		flying = false;
-		myCharMove->MovementMode = MOVE_Flying;
-				
-		//play damage sound
-
-		myAnimBP->damage = 10;
-
-		//hit pause, or, in this case, time dilation
-		UGameplayStatics::SetGlobalTimeDilation(myWorld, 0.1f);
-		UGameplayStatics::PlaySoundAtLocation(myWorld, knockDownSFX, GetActorLocation(), SFXvolume);
-		//start stabilize timer
-		GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStartKDtakeOff, hitPauseDuration, false);
 	}
-	else {		
-		
-		//play damage sound	
-		if (FMath::RandRange(0, 10) < 5) {
-			myAnimBP->damage = 1;
-			UGameplayStatics::PlaySoundAtLocation(myWorld, damage1SFX, GetActorLocation(), SFXvolume);
+	else {
+		recoilPortion = RecoilForce;
+		//play damage animation
+		if (KD) {
+			flying = false;
+			myCharMove->MovementMode = MOVE_Flying;
+
+			//play damage sound
+
+			myAnimBP->damage = 10;
+
+			//hit pause, or, in this case, time dilation
+			UGameplayStatics::SetGlobalTimeDilation(myWorld, 0.1f);
+			UGameplayStatics::PlaySoundAtLocation(myWorld, knockDownSFX, GetActorLocation(), SFXvolume);
+			//start stabilize timer
+			GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStartKDtakeOff, hitPauseDuration, false);
 		}
 		else {
-			myAnimBP->damage = 2;
-			UGameplayStatics::PlaySoundAtLocation(myWorld, damage2SFX, GetActorLocation(), SFXvolume);
+
+			//play damage sound	
+			if (FMath::RandRange(0, 10) < 5) {
+				myAnimBP->damage = 1;
+				UGameplayStatics::PlaySoundAtLocation(myWorld, damage1SFX, GetActorLocation(), SFXvolume);
+			}
+			else {
+				myAnimBP->damage = 2;
+				UGameplayStatics::PlaySoundAtLocation(myWorld, damage2SFX, GetActorLocation(), SFXvolume);
+			}
+
+			//hit pause, or, in this case, time dilation
+			UGameplayStatics::SetGlobalTimeDilation(myWorld, 0.1f);
+			//start stabilize timer
+			GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStabilize, hitPauseDuration, false);
 		}
-	
-		//hit pause, or, in this case, time dilation
-		UGameplayStatics::SetGlobalTimeDilation(myWorld, 0.1f);
-		//start stabilize timer
-		GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedStabilize, hitPauseDuration, false);
-	}	
+	}
 }
 void AMutationChar::Death() {
 	myWorld->GetTimerManager().ClearTimer(timerHandle);
@@ -1391,7 +1393,7 @@ void AMutationChar::Death() {
 	//check if player was locked to me and disengage targetlock if so
 	myTarget->MutationDied(mutation_i);
 
-	myGameState->RemoveMutation(mutation_i, grabable_i, grappable_i);
+	myGameState->RemoveMutation(mutation_i);
 
 	//make sure time is reset
 	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
@@ -1474,12 +1476,12 @@ void AMutationChar::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 				//check if grab
 				if (OtherComp->GetName() == myTarget->grabComp->GetName()) {
 					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, "[Mutation grabbed] my name: " + GetName() + " hit obj: " + *OtherActor->GetName());
-					if (grabable_i >= 0 && !myTarget->mutationGrabbed) {
+					if (!myTarget->mutationGrabbed) {
 						thrownByPlayer = false;
 						CancelAttack();
 						mystate = MutationStates::grabbed;
 
-						myTarget->grabTarget_i = grabable_i;
+						myTarget->grabbedMutation = this;
 						UGameplayStatics::PlaySoundAtLocation(myWorld, begrabbedSFX, GetActorLocation(), SFXvolume);
 						myTarget->GrabSuccess();
 

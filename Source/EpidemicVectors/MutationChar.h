@@ -175,8 +175,7 @@ public:
 	float targetSensedTime;
 	int patrol_i;
 	int patrolDir = 1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) int grabable_i = -1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) int grappable_i = -1;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite) int mutation_i = -1;
 	float distToTarget;
 	AMyPlayerCharacter* myTarget;

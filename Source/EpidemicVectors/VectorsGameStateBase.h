@@ -21,18 +21,10 @@ class EPIDEMICVECTORS_API AVectorsGameStateBase : public AGameStateBase
 	
 public:
 	virtual void BeginPlay() override;
-	void InitLists();
-	void RemoveMutation(int Mutation_i, int Grab_i, int Grap_i);
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) int grabable_i = 0;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) int grappable_i = 0;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) int mutation_i = 0;
-
+	void RemoveMutation(int Mutation_i);
+		
 	UWorld* world;
 	//to store all mutations in scene
 	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<AMutationChar*> mutations;
-	//all grappable elements
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<AActor*> grappables;
-	//all grabable elements
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<AMutationChar*> grabables;
+	
 };
