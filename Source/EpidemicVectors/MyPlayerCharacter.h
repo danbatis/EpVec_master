@@ -315,6 +315,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthSuperL;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthSuperR;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SFX") float timeDilation = 1.0f;
 	UPROPERTY(EditAnywhere, Category = "SFX") float SFXvolume = 1.0f;
 	UPROPERTY(EditAnywhere, Category = "SFX") USoundBase* ChargeSlashL_iSFX;
 	UPROPERTY(EditAnywhere, Category = "SFX") USoundBase* ChargeSlashL_endSFX;

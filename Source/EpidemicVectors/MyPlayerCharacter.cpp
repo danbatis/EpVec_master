@@ -1513,8 +1513,9 @@ void AMyPlayerCharacter::CancelAttack() {
 	waiting4Hook = false;
 	waiting4HookCol = false;
 		
-	this->CustomTimeDilation = 1.0f;
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	timeDilation = 1.0f;
+	this->CustomTimeDilation = timeDilation;
+	UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 	
 	//stop being lethal
 	Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(false);
@@ -1811,7 +1812,8 @@ void AMyPlayerCharacter::Listen4Grab() {
 		myAnimBP->attackIndex = 100;
 
 		//freeze time
-		UGameplayStatics::SetGlobalTimeDilation(world, aimTimeDilation);
+		timeDilation = aimTimeDilation;
+		UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 	}
 	//grab aiming
 	if ((player->IsInputKeyDown(grabKey) || player->IsInputKeyDown(grab_jKey)) && mutationGrabbed && interactionLevel >= 3) {
@@ -1834,7 +1836,8 @@ void AMyPlayerCharacter::Listen4Grab() {
 	if ((player->WasInputKeyJustReleased(grabKey) || player->WasInputKeyJustReleased(grab_jKey)) && mutationGrabbed) {
 		myAnimBP->attackIndex = 101;
 		waiting4GrabThrow = true;
-		UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+		timeDilation = 1.0f;
+		UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 		myCharMove->GravityScale = hookReleaseGravity;
 		myCharMove->bOrientRotationToMovement = !lookInCamDir;
 
@@ -1848,7 +1851,8 @@ void AMyPlayerCharacter::Listen4Hook() {
 	if (interactionLevel >= 3 && !landing && !mutationGrabbed && (player->WasInputKeyJustPressed(hookKey) || player->WasInputKeyJustPressed(hook_jKey))) {
 		UGameplayStatics::PlaySoundAtLocation(world, grapplePrepareSFX, GetActorLocation(), SFXvolume);
 		//freeze time
-		UGameplayStatics::SetGlobalTimeDilation(world, aimTimeDilation);
+		timeDilation = aimTimeDilation;
+		UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 		oldTargetLocked = targetLocked;
 		targetLocked = false;
 		cameraArmLength = CameraFreeArmLength / 2;
@@ -1953,7 +1957,8 @@ void AMyPlayerCharacter::Listen4Hook() {
 			this->CustomTimeDilation = 1.0f;
 			myAnimBP->attackIndex = 0;
 			ResetSpeeds();
-			UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+			timeDilation = 1.0f;
+			UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 			UGameplayStatics::PlaySoundAtLocation(world, grappleCancelSFX, GetActorLocation(), SFXvolume);
 		}
 	}
@@ -2124,7 +2129,8 @@ void AMyPlayerCharacter::MyDamage(float DamagePower, bool KD, bool Spiral) {
 	ResetSpeeds();
 
 	myCharMove->bOrientRotationToMovement = false;
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	timeDilation = 1.0f;
+	UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 		
 	flying = false;
 
@@ -2158,9 +2164,9 @@ void AMyPlayerCharacter::MyDamage(float DamagePower, bool KD, bool Spiral) {
 
 		myLoc = GetActorLocation();
 
-		
+		timeDilation = 0.1f;
 		//hit pause, or, in this case, time dilation
-		UGameplayStatics::SetGlobalTimeDilation(world, 0.1f);
+		UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 		//start delayed takeoff
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedKDtakeOff, hitPause, false);	
 	}
@@ -2183,14 +2189,16 @@ void AMyPlayerCharacter::MyDamage(float DamagePower, bool KD, bool Spiral) {
 			}
 		}
 
+		timeDilation = 0.1f;
 		//hit pause, or, in this case, time dilation
-		UGameplayStatics::SetGlobalTimeDilation(world, 0.1f);
+		UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 		//start stabilize timer
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedStabilize, hitPause, false);
 	}
 }
 void AMyPlayerCharacter::DelayedKDtakeOff() {
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	timeDilation = 1.0f;
+	UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::KnockDownFlight, takeOffTime, false);	
 }
 void AMyPlayerCharacter::KnockDownFlight() {
@@ -2201,7 +2209,8 @@ void AMyPlayerCharacter::KnockDownFlight() {
 	mystate = kdFlight;
 }
 void AMyPlayerCharacter::DelayedStabilize() {
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	timeDilation = 1.0f;
+	UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::Stabilize, damageTime, false);
 }
 void AMyPlayerCharacter::HookReturn() {
@@ -2218,7 +2227,8 @@ void AMyPlayerCharacter::HookReturn() {
 	hookedMutation = nullptr;
 	hookedActor = nullptr;
 
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	timeDilation = 1.0f;
+	UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 	this->CustomTimeDilation = 1.0f;
 
 	//play animation of hook fail
@@ -2259,7 +2269,8 @@ void AMyPlayerCharacter::HookFail(){
 	hookComp->SetRelativeRotation(hookRelRot);
 
 	//release time
-	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+	timeDilation = 1.0f;
+	UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 	this->CustomTimeDilation = 1.0f;
 }
 void AMyPlayerCharacter::HookConnect() {
@@ -2275,7 +2286,8 @@ void AMyPlayerCharacter::HookConnect() {
 		hookCurrSpeed = 0.0f;
 
 		//release time
-		UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
+		timeDilation = 1.0f;
+		UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 		this->CustomTimeDilation = 1.0f;
 	}
 }
