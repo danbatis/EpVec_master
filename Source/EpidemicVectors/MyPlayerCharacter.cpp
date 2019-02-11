@@ -71,8 +71,6 @@ void AMyPlayerCharacter::BeginPlay()
 	myAnimBP = Cast<UAnimComm>(myMesh->GetAnimInstance());
 	//find the 3 child components, the sword, the hook and the grab collider
 	if (myMesh->GetChildComponent(0) && myMesh->GetChildComponent(1) && myMesh->GetChildComponent(2)) {
-		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow, FString::Printf(TEXT("[player childs] 0: %s 1: %s 2: %s"), *myMesh->GetChildComponent(0)->GetName(), *myMesh->GetChildComponent(1)->GetName(), *myMesh->GetChildComponent(2)->GetName()));
-
 		if (myMesh->GetChildComponent(0)->GetName() == "sword") {
 			swordComp = myMesh->GetChildComponent(0);
 		}
@@ -105,7 +103,8 @@ void AMyPlayerCharacter::BeginPlay()
 		Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(false);
 		Cast<UPrimitiveComponent>(grabComp)->SetGenerateOverlapEvents(false);
 		
-		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Blue, FString::Printf(TEXT("[player childs] sword: %s hook: %s grabCollider: %s"), *swordComp->GetName(), *hookComp->GetName(), *grabComp->GetName()));
+		if(debugInfo)
+			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Blue, FString::Printf(TEXT("[player childs] sword: %s hook: %s grabCollider: %s"), *swordComp->GetName(), *hookComp->GetName(), *grabComp->GetName()));
 	}
 	else {
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("[player childs] missing children!!!")));
@@ -182,7 +181,7 @@ void AMyPlayerCharacter::BeginPlay()
 	//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::White, "leftAttack chain:");
 	UE_LOG(LogTemp, Warning, TEXT("walking in atk node always to the left"));
 	atkWalker = &attackList[0];
-	while(atkWalker->left != NULL){
+	while(atkWalker->left != nullptr){
 		atkWalker = atkWalker->left;
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::White, "animName: " + atkWalker->myAnim->GetFName().GetPlainNameString());
 		UE_LOG(LogTemp, Warning, TEXT("leftAttack chain : %s"), *atkWalker->myAnim->GetFName().GetPlainNameString());
@@ -198,9 +197,18 @@ void AMyPlayerCharacter::BeginPlay()
 	
 	//to signal there is no target selected or locked
 	target_i = -1;
-		
+	RayParams.AddIgnoredActor(this);
+
 	myGameState = Cast<AVectorsGameStateBase>(world->GetGameState());
-	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, "Finished beginPlay on player.");
+	//GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, "Finished beginPlay on player.");
+
+	/*
+	static ConstructorHelpers::FObjectFinder WaveRippleOb(TEXT("Blueprint'/EVteam/Blueprints/player/groundPunchRip_BP.groundPunchRip_BP'"));
+	if (WaveRippleOb.Object != NULL)
+	{
+		WaveRippleBP = (UClass*)WaveRippleOb.Object->GeneratedClass;
+	}
+	*/
 }
 
 // Called every frame
@@ -253,7 +261,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 			myCharMove->GravityScale = normalGravity;
 			UGameplayStatics::PlaySoundAtLocation(world, landSFX, GetActorLocation(), SFXvolume);
 			MakeNoise(1.0f, this, GetActorLocation());			
-			
+			if(debugInfo)
 			GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, FString::Printf(TEXT("[player] called stopLand, playerState: %d"), mystate));			
 			GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::StopLand, landTime, false);
 		}
@@ -543,7 +551,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				newMosquito = GWorld->SpawnActor<AMosquitoCharacter>(AMosquitoCharacter::StaticClass(), SpawnPosition, FRotator::ZeroRotator, SpawnInfo);
 			}
 
-			if (newMosquito != NULL)
+			if (newMosquito != nullptr)
 			{
 				DrawDebugLine(world, GetActorLocation(), SpawnPosition, FColor(0, 255, 0), true, -1, 0, 5.0);
 			}
@@ -613,9 +621,9 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 
 				//release mutation and set it to be dizzy
 				AMutationChar* maybeMutation;
-				if(hookedActor) {
+				if(hookedActor != nullptr) {
 					maybeMutation = Cast<AMutationChar>(hookedActor);
-					if (maybeMutation) {
+					if (maybeMutation != nullptr) {
 						maybeMutation->FromGrappleRecover(mutationDizzyTime);
 						target_i = -1;
 						/*
@@ -630,7 +638,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 						*/
 					}
 				}
-				hookedActor = NULL;
+				hookedActor = nullptr;
 
 				ResetAnims();
 				GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Red, TEXT("returning to idle from hook flight!"));
@@ -730,6 +738,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		if (!arising) {
 			//simple rise, seesaw attack or spin attack
 			if ((player->IsInputKeyDown(atk1Key) && player->WasInputKeyJustPressed(atk2Key)) || (player->IsInputKeyDown(atk1_jKey) && player->WasInputKeyJustPressed(atk2_jKey))) {
+				CancelAttack();
 				arising = true;
 				//spin rise attack
 				attackPower = attackKDPower;
@@ -741,10 +750,13 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				UGameplayStatics::PlaySoundAtLocation(world, spinRiseSFX, GetActorLocation(), SFXvolume);
 				if (swordComp)
 					Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(true);
+				swordVFX->BeginTrails(atkTrailSocket1R, atkTrailSocket2R, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthR);
+
 				advanceAtk = 0.0f;
 				GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedAtkRise, spinRiseTime, false);
 			}
 			if (player->WasInputKeyJustReleased(atk1Key) || player->WasInputKeyJustReleased(atk1_jKey)) {
+				CancelAttack();
 				arising = true;
 				//seesaw attack rise
 				attackPush = spinRisePushForce;
@@ -758,6 +770,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedSeeSawRise, seesawRisePrepGain*seesawRiseTime, false);
 			}
 			if (player->WasInputKeyJustReleased(atk2Key) || vertIn > 0.0f || player->WasInputKeyJustReleased(atk2_jKey)) {
+				CancelAttack();
 				//simple rise
 				arising = true;
 				myAnimBP->damageIndex = 31;
@@ -890,7 +903,7 @@ void AMyPlayerCharacter::Reorient(){
 			}
 		}
 
-		if (target_i >= 0) {
+		if (target_i >= 0 && myGameState->mutations[target_i] != nullptr) {
 			FVector targetpos = myGameState->mutations[target_i]->GetActorLocation();
 			myLoc = GetActorLocation();
 			//check if target position is valid, if it is too high disengage targetLock
@@ -1019,7 +1032,7 @@ void AMyPlayerCharacter::FindEnemy(int locDir) {
 	FVector querypos;
 	bool queryVisible;
 	
-	if (target_i >= 0) {
+	if (target_i >= 0 && myGameState->mutations[target_i] != nullptr) {
 		player->ProjectWorldLocationToScreen(myGameState->mutations[target_i]->GetActorLocation(), targetScreenPos, false);
 		//targetScreenPosAbs = targetScreenPos;
 		targetScreenPos.X /= width;
@@ -1056,8 +1069,7 @@ void AMyPlayerCharacter::FindEnemy(int locDir) {
 			inviewport = targetScreenPos.X > 0 && targetScreenPos.X < 1 && targetScreenPos.Y>0 && targetScreenPos.Y < 1;
 
 			if (inviewport && myGameState->mutations[i]->mystate != MutationStates::grabbed) {
-				//raycast to see if enemy is visible
-				RayParams.AddIgnoredActor(this);
+				//raycast to see if enemy is visible				
 				myLoc = GetActorLocation();
 				if (world->LineTraceSingleByChannel(hitres, FollowCamera->GetComponentLocation(), querypos, ECC_MAX, RayParams)) {
 					if (debugInfo) {
@@ -1065,7 +1077,7 @@ void AMyPlayerCharacter::FindEnemy(int locDir) {
 						GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Red, FString::Printf(TEXT("lockTarget raycast: %s"), *hitres.Actor.Get()->GetName()));
 					}
 					AMutationChar * queryMut = Cast<AMutationChar>(hitres.Actor.Get());
-					if (queryMut)
+					if (queryMut != nullptr)
 						queryVisible = true;
 				}
 				if (queryVisible){
@@ -1147,7 +1159,7 @@ void AMyPlayerCharacter::Look2Dir(FVector LookDir) {
 }
 void AMyPlayerCharacter::MoveForward(float Value)
 {
-	if ((Controller != NULL) && (Value != 0.0f))
+	if ((Controller != nullptr) && (Value != 0.0f))
 	{
 		if(lookInCamDir)
 			Look2Dir(forthVec);
@@ -1163,7 +1175,7 @@ void AMyPlayerCharacter::MoveForward(float Value)
 
 void AMyPlayerCharacter::MoveRight(float Value)
 {
-	if ((Controller != NULL) && (Value != 0.0f))
+	if ((Controller != nullptr) && (Value != 0.0f))
 	{	
 		if (lookInCamDir)
 			Look2Dir(forthVec);
@@ -1201,7 +1213,8 @@ void AMyPlayerCharacter::Attack1Release() {
 			if (debugInfo)
 				GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Blue, TEXT("long attack1 press"));
 			atk1Hold = false;
-			KnockDownHit(true);
+			if(!inAir)
+				KnockDownHit(true);
 		}
 	}
 }
@@ -1223,6 +1236,8 @@ void AMyPlayerCharacter::Attack2Release() {
 	}
 }
 void AMyPlayerCharacter::KnockDownHit(bool left) {
+	//to avoid being locked 
+	CancelAttack();
 	//clear current relax timer
 	world->GetTimerManager().ClearTimer(timerHandle);
 	//old way, with the animation blueprint
@@ -1311,7 +1326,7 @@ void AMyPlayerCharacter::AttackWalk(bool left){
 		
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Orange, FString::Printf(TEXT("atkIndex: %d atkChainIndex: %d"), atkIndex, atkChainIndex));
 		if (left) {
-			if (atkWalker->left != NULL) {
+			if (atkWalker->left != nullptr) {
 				atkWalker = atkWalker->left;
 				//myCharMove->bOrientRotationToMovement = false;
 				attackChain.Add(*atkWalker);				
@@ -1324,7 +1339,7 @@ void AMyPlayerCharacter::AttackWalk(bool left){
 			}
 		}
 		else {
-			if (atkWalker->right != NULL) {
+			if (atkWalker->right != nullptr) {
 				atkWalker = atkWalker->right;
 				//myCharMove->bOrientRotationToMovement = false;
 				attackChain.Add(*atkWalker);				
@@ -1452,7 +1467,12 @@ void AMyPlayerCharacter::Relax(){
 		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(false);
 	if (hookComp)
 		Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(false);	
-	
+
+	swordVFX->EndTrails();
+	clawVFX->EndTrails();
+	rangedSwordVFX->EndTrails();
+	groundPunchVFX->EndTrails();
+
 	if (debugInfo)
 		GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("relaxed!"));
 }
@@ -1478,8 +1498,8 @@ void AMyPlayerCharacter::CancelAttack() {
 	CancelKnockDownPrepare(true);
 	CancelKnockDownPrepare(false);
 	
-	mainThrustVFX->Deactivate();
-	turboThrustVFX->Deactivate();
+	//mainThrustVFX->Deactivate();
+	//turboThrustVFX->Deactivate();
 	swordVFX->EndTrails();
 	clawVFX->EndTrails();
 	rangedSwordVFX->EndTrails();
@@ -1751,7 +1771,7 @@ void AMyPlayerCharacter::Listen4Attack(){
 	}
 }
 void AMyPlayerCharacter::Advance(){	
-	if ((Controller != NULL) && (advanceAtk != 0.0f))
+	if ((Controller != nullptr) && (advanceAtk != 0.0f))
 	{
 		// get forward vector
 		const FVector Direction = GetActorForwardVector();
@@ -1860,15 +1880,16 @@ void AMyPlayerCharacter::Listen4Hook() {
 		grappleValue = 10.0f;
 		crossHairColor = FColor::Silver;
 		FVector2D grapScreenPos;
+		hookedMutation = nullptr;
+		hookedActor = nullptr;
 
 		//do the raycast to find if there is something grappable not ocluded in front of the camera
-		RayParams.AddIgnoredActor(this);
 		if (world->LineTraceSingleByChannel(hitres, myLoc, targetPos, ECC_MAX, RayParams)) {
 			//if (debugInfo)
 			//	GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Red, FString::Printf(TEXT("grapplehitting: %s"), *hitres.Actor.Get()->GetName()));
 			//check if mutation grappable or grappable point
 			AMutationChar* maybeMutation = Cast<AMutationChar>(hitres.Actor.Get());
-			if (maybeMutation) {
+			if (maybeMutation != nullptr) {
 				if (maybeMutation->grappable) {
 					hookedMutation = maybeMutation;
 					hookedActor = hitres.Actor.Get();
@@ -1877,24 +1898,24 @@ void AMyPlayerCharacter::Listen4Hook() {
 				}
 				else {
 					//not a valid target
+					hookedMutation = nullptr;
+					hookedActor = nullptr;
 				}
 			}
 			else {
 				AGrappable* maybeGrapPoint = Cast<AGrappable>(hitres.Actor.Get());
-				if (maybeGrapPoint) {
+				if (maybeGrapPoint != nullptr) {
 					hookedActor = hitres.Actor.Get();
 					//and make the correspondent UI hint green
 					crossHairColor = FColor::Emerald;
 				}
 				else {
 					//not a valid target
+					hookedMutation = nullptr;
+					hookedActor = nullptr;
 				}
 			}
-		}
-		else {
-			//not a valid target
-		}
-		
+		}	
 	}
 	//throw grappling hook
 	if (interactionLevel >= 3 && aiming && !mutationGrabbed && (player->WasInputKeyJustReleased(hookKey) || player->WasInputKeyJustReleased(hook_jKey))) {
@@ -1941,7 +1962,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 /*
 void AMyPlayerCharacter::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if(OtherActor!=NULL && OtherActor!=this && OtherComp != NULL){
+	if(OtherActor!=nullptr && OtherActor!=this && OtherComp != nullptr){
 		if (debugInfo){
 			//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Red, FString::Printf(TEXT("I %s just hit: %s"), GetName(), *OtherActor->GetName()));
 			GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Orange, "[player ComponentHit] my name: " + GetName()+"hit obj: "+ *OtherActor->GetName());
@@ -1960,7 +1981,7 @@ void AMyPlayerCharacter::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent
 
 		//check if attacked
 		AMutationChar *myAlgoz = Cast<AMutationChar>(OtherActor);
-		if (myAlgoz) {
+		if (myAlgoz != nullptr) {
 					
 			//only call damage if not already in some damage state
 			if(mystate < evading || mystate > kdRise) {
@@ -2049,7 +2070,9 @@ void AMyPlayerCharacter::OnEndOverlap(UPrimitiveComponent* OverlappedComponent, 
 
 void AMyPlayerCharacter::HookOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	if(debugInfo)
 	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, "[hook Overlap] triggered: " + GetName() + " hit obj: " + *OtherActor->GetName());
+
 	if (waiting4HookCol) {
 		waiting4HookCol = false;
 		if(hookComp)
@@ -2061,7 +2084,7 @@ void AMyPlayerCharacter::HookOverlap(UPrimitiveComponent* OverlappedComponent, A
 
 		//check if mutation or grapple point
 		hookedMutation = Cast<AMutationChar>(OtherActor);
-		if (hookedMutation) {
+		if (hookedMutation != nullptr) {
 			if (hookedMutation->grabable) {
 				UGameplayStatics::PlaySoundAtLocation(world, grapConnMutationSFX, GetActorLocation(), SFXvolume);
 				hookedActor = OtherActor;
@@ -2076,7 +2099,7 @@ void AMyPlayerCharacter::HookOverlap(UPrimitiveComponent* OverlappedComponent, A
 		}
 		else {
 			AGrappable * maybeGrapPoint = Cast<AGrappable>(OtherActor);
-			if (maybeGrapPoint) {
+			if (maybeGrapPoint != nullptr) {
 				UGameplayStatics::PlaySoundAtLocation(world, grapConnPointSFX, GetActorLocation(), SFXvolume);
 				hookedActor = OtherActor;
 				HookConnect();
@@ -2192,8 +2215,8 @@ void AMyPlayerCharacter::HookReturn() {
 	if (hookedMutation)
 		hookedMutation->Stabilize();
 
-	hookedMutation = NULL;
-	hookedActor = NULL;
+	hookedMutation = nullptr;
+	hookedActor = nullptr;
 
 	UGameplayStatics::SetGlobalTimeDilation(world, 1.0f);
 	this->CustomTimeDilation = 1.0f;
@@ -2268,7 +2291,6 @@ void AMyPlayerCharacter::DelayedAtkRise() {
 	if (swordComp)
 		Cast<UPrimitiveComponent>(swordComp)->SetGenerateOverlapEvents(false);
 		
-	swordVFX->BeginTrails(atkTrailSocket1R, atkTrailSocket2R, ETrailWidthMode::ETrailWidthMode_FromFirst, trailWidthR);
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::Relax, riseAtkCoolDown, false);
 }
 void AMyPlayerCharacter::DelayedSeeSawRise() {
@@ -2323,6 +2345,53 @@ void AMyPlayerCharacter::LockTarget(bool active) {
 		targetScreenPos.Y = -1.0f;
 	}
 }
+void AMyPlayerCharacter::GroundPunchRipple(){
+	//spawn ripple
+	if (WaveRippleBP) {
+		FVector ripplePosition = rippleStartPosition + rippleForwardVector * grndPchRpplForthOffset;
+
+		//DrawDebugLine(world, ripplePosition, ripplePosition + 0.5f*grndPchRppRangeY*FVector::UpVector + 0.5f*grndPchRppRangeY*FVector::RightVector, FColor::Magenta, true, -1, 0, 5.0);
+
+		//trace to find if there is ground here
+		if (world->LineTraceSingleByChannel(hitres, ripplePosition+ grndPchRppHeightCast*FVector::UpVector, ripplePosition - grndPchRppRangeY *FVector::UpVector, ECC_Camera, RayParams)) {
+
+			rippleStartPosition = hitres.ImpactPoint;
+
+			//DrawDebugLine(world, rippleStartPosition, rippleStartPosition + 0.5f*grndPchRppRangeY*FVector::UpVector, FColor::Green, true, -1, 0, 5.0);
+			//DrawDebugLine(world, rippleStartPosition, ripplePosition + 0.5f*grndPchRppRangeY*FVector::UpVector+ 0.5f*grndPchRppRangeY*FVector::RightVector, FColor::Orange, true, -1, 0, 5.0);
+			
+			//only spawn ripples if the height difference is not too big, to avoid propagating on gaps or big steps
+			if ((rippleStartPosition - ripplePosition).Size() <= grndPchRppRangeY) {
+				ripplePosition = rippleStartPosition - grndPchRppOffsetY * FVector::UpVector;
+
+				FActorSpawnParameters rippleSpawnInfo;
+				rippleSpawnInfo.Owner = this;
+
+				FTransform rippleTransform;
+				rippleTransform.SetLocation(ripplePosition);
+				rippleTransform.SetRotation(FQuat(rippleRot));
+				/*
+				//changing the scale of the transform does not change the scale of the actor
+				float newripsize = (float)((grndPunchRipples - ripple_i + 1.0f) / grndPunchRipples);
+				if (debugInfo)
+					GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Blue, FString::Printf(TEXT("[player] wave ripple size: %f"), newripsize));
+				rippleTransform.SetScale3D(FVector(newripsize, newripsize, newripsize));
+				*/
+
+				AActor * newRipple;
+				newRipple = world->SpawnActor<AActor>(WaveRippleBP, rippleTransform, rippleSpawnInfo);
+
+				//changing size after spawn does not work
+				//newRipple->SetActorScale3D(FVector(newripsize, newripsize, newripsize));
+
+				ripple_i++;
+				if (ripple_i <= grndPunchRipples) {
+					GetWorldTimerManager().SetTimer(grndPchTimerHandle, this, &AMyPlayerCharacter::GroundPunchRipple, grndPunchRippleTime, false);
+				}
+			}
+		}
+	}
+}
 void AMyPlayerCharacter::GrabSuccess() {
 	mutationGrabbed = true;
 	LockTarget(false);
@@ -2335,6 +2404,20 @@ void AMyPlayerCharacter::ReportGrabThrow() {
 		waiting4GrabThrow = false;
 		GrabThrow();
 	}
+}
+void AMyPlayerCharacter::ReportGroundPunchHit() {
+	if(debugInfo)
+		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Blue, "[player] received ground punch notify");
+	ripple_i = 0;
+
+	//hardcoded -100.0f to start on character's feet instead of the middle of his body
+	rippleStartPosition = GetActorLocation() -100.0f * FVector::UpVector;;
+	rippleForwardVector = GetActorForwardVector();
+
+	rippleRot = GetActorRotation();
+	rippleRot.Pitch = 0.0f;
+	rippleRot.Roll = 0.0f;
+	GroundPunchRipple();		
 }
 void AMyPlayerCharacter::GrabThrow(){
 	//aiming = false;
@@ -2354,7 +2437,7 @@ void AMyPlayerCharacter::GrabThrow(){
 	forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
 	grabbedMutation->GrabThrow(forthVec, throwPower);
 	
-	grabbedMutation = NULL;
+	grabbedMutation = nullptr;
 	mutationGrabbed = false;
 }
 void AMyPlayerCharacter::StopDoubleAirJump() {
@@ -2377,11 +2460,17 @@ void AMyPlayerCharacter::ResetSpeeds() {
 }
 void AMyPlayerCharacter::MutationDied(int MutationID) {
 	//check if player was locked to me and disengage targetlock if so
-	if (target_i == MutationID) {
-		target_i = -1;
-		targetLocked = false;
-		cameraArmLengthTarget = CameraFreeArmLength;
-		nearCamStart = mytime;
+	if (target_i >= 0) {
+		if (target_i == MutationID) {
+			target_i = -1;
+			targetLocked = false;
+			cameraArmLengthTarget = CameraFreeArmLength;
+			nearCamStart = mytime;
+		}
+		else {
+			if (target_i > MutationID)
+				target_i--;
+		}
 	}
 }
 void AMyPlayerCharacter::FellOutOfWorld(const class UDamageType& dmgType)

@@ -102,10 +102,8 @@ void AMutationChar::BeginPlay()
 	myController->SetDonePath(true);
 	*/
 
-	if(patrolPoints.Num()>0)
-		targetPos = patrolPoints[0]->GetActorLocation();
-	currentScanParams = investigateParams;
-	
+	StartPatrol();
+
 	/*
 	if (!patrolPoints.IsValidIndex(0)) {
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("[Mutation %s] have no patrol points!!!!"), *GetName()));
@@ -200,7 +198,9 @@ void AMutationChar::Tick(float DeltaTime)
 		DrawDebugLine(myWorld, GetActorLocation(), targetPos, FColor::Green, true, 0.1f, 0, 5.0);
 		FVector algozDir = myLoc - targetPos;
 		algozDir.Normalize();
-		DrawDebugLine(myWorld, targetPos, targetPos + moveTolerance * algozDir, FColor::Black, true, 0.1f, 0, 5.0);
+		if (debugInfo) {
+			DrawDebugLine(myWorld, targetPos, targetPos + moveTolerance * algozDir, FColor::Black, true, 0.1f, 0, 5.0);
+		}
 	}
 
 	if (waitEQS) {
@@ -209,9 +209,11 @@ void AMutationChar::Tick(float DeltaTime)
 			targetPos = myController->GetGoal();
 			myController->RestartBT();
 			distToTarget = FVector::Distance(myLoc, targetPos);
-			DrawDebugLine(myWorld, targetPos, targetPos + 1000.0f*FVector::UpVector, FColor::Black, true, 1.1f, 0, 5.0);
-			if (debugInfo)
+			if (debugInfo) {
+				DrawDebugLine(myWorld, targetPos, targetPos + 1000.0f*FVector::UpVector, FColor::Black, true, 1.1f, 0, 5.0);
+
 				DrawDebugLine(myWorld, myLoc, myLoc + 1000.0f*FVector::UpVector, FColor::Magenta, true, 1.1f, 0, 5.0);
+			}
 			waitEQS = false;
 			StartTraverse();
 		}
@@ -506,7 +508,7 @@ void AMutationChar::Tick(float DeltaTime)
 			QuatRotation = FQuat(NewRotation);
 			AddActorLocalRotation(QuatRotation, false, 0, ETeleportType::None);
 			//go to player's height
-			moveDir = (-1)*FVector::UpVector;
+			moveDir = (-1)*FVector::UpVector-GetActorForwardVector();
 			AddMovementInput(moveDir, 1.0f);
 			
 			//if finished roll, resume
@@ -552,7 +554,7 @@ void AMutationChar::OnHearNoise(APawn* PawnInstigator, const FVector& Location, 
 	if (myController && PawnInstigator != this)
 	{
 		myTarget = Cast<AMyPlayerCharacter>(PawnInstigator);
-		if (myTarget && mystate < MutationStates::suffering) {
+		if (myTarget != nullptr && mystate < MutationStates::suffering) {
 			
 			UE_LOG(LogTemp, Warning, TEXT("[Mutation] target heard."));
 
@@ -611,7 +613,7 @@ void AMutationChar::OnSeenTarget(APawn* PawnInstigator)
 	if (myController && PawnInstigator != this)
 	{
 		myTarget = Cast<AMyPlayerCharacter>(PawnInstigator);
-		if (myTarget && mystate < MutationStates::suffering) {
+		if (myTarget != nullptr && mystate < MutationStates::suffering) {
 			UE_LOG(LogTemp, Warning, TEXT("[Mutation] target seen!."));
 			
 			if (mystate == MutationStates::escape) {
@@ -890,7 +892,7 @@ void AMutationChar::Navigating(float DeltaTime){
 					DrawDebugLine(myWorld, myLoc, targetPos, FColor::Green, true, 1.1f, 0, 5.0);
 				}
 				AMyPlayerCharacter * playerChar = Cast<AMyPlayerCharacter>(hitres.GetActor());
-				if (playerChar) {
+				if (playerChar != nullptr) {
 					targetVisible = true;
 					if (distToTarget < fightRange) {
 						mystate = MutationStates::fight;
@@ -911,7 +913,7 @@ void AMutationChar::Navigating(float DeltaTime){
 
 					//when obstructed by another mutation, we consider it is not obstructed
 					AMutationChar * otherMut = Cast<AMutationChar>(hitres.GetActor());
-					if (otherMut) {
+					if (otherMut != nullptr) {
 						//you forgot to set this mutation to be ignored in its trace channel!!!!
 						GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, FString::Printf(TEXT("Mutation: %s is NOT being ignored on the path finding AI, fix its Mutations trace response!"), *hitres.Actor.Get()->GetName()));
 					}
@@ -932,8 +934,11 @@ void AMutationChar::Navigating(float DeltaTime){
 									UE_LOG(LogTemp, Warning, TEXT("[mutation] choosing random dir"));
 									flying = true;
 									myCharMove->MovementMode = MOVE_Flying;
+									
 									FVector randDest = targetPos + FMath::RandRange(0.0f, 500.0f)*FVector::RightVector + FMath::RandRange(0.0f, 500.0f)*FVector::ForwardVector;
-									DrawDebugLine(myWorld, randDest, randDest + 1000.0f*FVector::UpVector, FColor::Magenta, true, 1.1f, 0, 5.0);
+									if (debugInfo) {
+										DrawDebugLine(myWorld, randDest, randDest + 1000.0f*FVector::UpVector, FColor::Magenta, true, 1.1f, 0, 5.0);
+									}
 									movingRes = myController->MoveToLocation(randDest, 0.5f*moveTolerance, false, false, false, true, 0, true);
 								}
 							}
@@ -1315,7 +1320,7 @@ void AMutationChar::CancelAttack() {
 	myAnimBP = Cast<UMutationAnimComm>(myMesh->GetAnimInstance());
 }
 
-void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float RecoilForce, float DamageTime) {
+void AMutationChar::MyDamage(float DamagePwr, FVector AlgozPos, bool KD, float RecoilForce, float DmgTime, FVector hitPoint, FVector hitNormal) {
 	if (debugInfo) {
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Blue, "[Mutation] damaged: "+GetName());
 	}
@@ -1323,7 +1328,7 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float
 
 	threatened = true;
 	mystate = MutationStates::suffering;
-	damageTime = DamageTime;
+	damageTime = DmgTime;
 
 	//stop the traversing
 	donePath = true;
@@ -1338,12 +1343,19 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float
 	//look to your algoz
 	LookTo(AlgozPos);
 	
-	if (life - DamagePower < desperateLifeLevel && life >= desperateLifeLevel) {
+	if (life - DamagePwr < desperateLifeLevel && life >= desperateLifeLevel) {
 		//myController->SetDesperate(true);
 		becomeDesperate = true;
 	}
 
-	life -= DamagePower;
+	FTransform hitTransform;
+	hitTransform.SetLocation(hitPoint);
+	//DrawDebugLine(myWorld, hitPoint, hitPoint+500.0f*FVector::UpVector, FColor::Red, true, 1.0f, 0, 5.0);
+	hitTransform.SetRotation(hitNormal.ToOrientationQuat());
+		
+	UGameplayStatics::SpawnEmitterAtLocation(myWorld, damagehitVFX, hitTransform, true, EPSCPoolMethod::AutoRelease);
+
+	life -= DamagePwr;
 	if (life <= 0) {
 		Death();
 	}
@@ -1385,18 +1397,15 @@ void AMutationChar::MyDamage(float DamagePower, FVector AlgozPos, bool KD, float
 }
 void AMutationChar::Death() {
 	myWorld->GetTimerManager().ClearTimer(timerHandle);
-	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
+	
 	if (debugInfo) {
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[Mutation %s] is dead" + GetName());		
 	}
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow, "time should be normal again...");
+	
 	//check if player was locked to me and disengage targetlock if so
 	myTarget->MutationDied(mutation_i);
 
 	myGameState->RemoveMutation(mutation_i);
-
-	//make sure time is reset
-	UGameplayStatics::SetGlobalTimeDilation(myWorld, 1.0f);
 
 	AActor::Destroy();
 }
@@ -1462,14 +1471,20 @@ void AMutationChar::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 	if (OtherActor && (OtherActor != this) && OtherComp)
 	{
 		if (debugInfo) {
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, "[OverlapBegin] my name: " + GetName() + " hit obj: " + *OtherActor->GetName());
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("[OverlapBegin] my name: %s hitObj %s compName %s className %s"), *GetName(), *OtherActor->GetName(), *OtherComp->GetName(), *OtherActor->GetClass()->GetName()));
 		}
+		
+		//the safe cast crashes the game instead of returning nullptr for the rippleCollider, so we check before it:
+		if (OtherComp->GetName() != "sword" && OtherComp->GetName() != "hook" && OtherComp->GetName() != "grabCollider")
+			return;
 
-		myTarget = Cast<AMyPlayerCharacter>(OtherActor);
-		if (myTarget) {
+		myTarget = Cast<AMyPlayerCharacter>(OtherActor);		
+		if (myTarget != nullptr) {		
 			if (OtherComp->GetName() == myTarget->swordComp->GetName() || (OtherComp->GetName() == myTarget->hookComp->GetName() && !myTarget->waiting4HookCol)) {
 				if (mystate != MutationStates::kdFlight && mystate != MutationStates::grabbed) {
-					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown, myTarget->attackPush, myTarget->atkPushTime);
+					//crazy engine, the hitPoint is not where the hit happened!!! The overlap does not populate the FHitResult struct
+					//MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown, myTarget->attackPush, myTarget->atkPushTime, SweepResult.ImpactPoint, SweepResult.ImpactNormal);
+					MyDamage(myTarget->attackPower, myTarget->GetActorLocation(), myTarget->knockingDown, myTarget->attackPush, myTarget->atkPushTime, GetActorLocation(), FVector::UpVector);
 				}
 			}
 			else {
@@ -1491,6 +1506,8 @@ void AMutationChar::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 						myMesh->AttachToComponent(OtherComp, FAttachmentTransformRules::KeepRelativeTransform, grabbingSocketName);
 
 						//turn on ragdoll stuff
+						inAir = true;
+						myAnimBP->inAir = inAir;
 						SetRagdoll(true);
 
 						//reset speeds that were changed on the SpiralAttack
@@ -1507,6 +1524,10 @@ void AMutationChar::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 						//send a grab fail
 						myTarget->GrabFail();
 					}
+				}
+				else {
+					//some other non intended collider:
+					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, "[Mutation ODD overlapped] my name: " + GetName() + " hit obj: " + *OtherActor->GetName());
 				}
 			}
 		}		
@@ -1533,6 +1554,7 @@ void AMutationChar::DelayedFromGrabRecover(){
 	ScanRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), forthPos);
 
 	thrownTime = mytime;
+	inAir = true;
 	
 	//enable collisions so mutations do not get throw through objects
 	myCapsuleComp->SetGenerateOverlapEvents(true);
@@ -1592,6 +1614,14 @@ void AMutationChar::SetRagdoll(bool Activation) {
 		myController->RestartBT();
 	}
 }
+void AMutationChar::StartPatrol() {
+	if (patrolPoints.Num() > 0) {
+		targetPos = patrolPoints[0]->GetActorLocation();
+		nextPatrol_i = 0;
+	}
+	myLoc = GetActorLocation();
+	currentScanParams = investigateParams;
+}
 void AMutationChar::GrabThrow(FVector GrabThrowDir, float GrabThrowSpeed) {
 	CancelAttack();
 	myCharMove->MovementMode = MOVE_Flying;
@@ -1618,14 +1648,16 @@ void AMutationChar::CancelEQS() {
 	waitEQS = false;
 }
 void AMutationChar::DecideWhichSideFacesPlayer() {
-	//calculating what direction to rotate to face player
-	FVector targetDir = myTarget->GetActorLocation() - GetActorLocation();
-	targetDir.Normalize();
-	FVector pseudoUp = FVector::CrossProduct(GetActorForwardVector(), targetDir);
-	if (FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(pseudoUp, FVector::UpVector))) < 90)
-		rotateToFaceTargetDir = 1;
-	else
-		rotateToFaceTargetDir = -1;
+	if (myTarget != nullptr) {
+		//calculating what direction to rotate to face player
+		FVector targetDir = myTarget->GetActorLocation() - GetActorLocation();
+		targetDir.Normalize();
+		FVector pseudoUp = FVector::CrossProduct(GetActorForwardVector(), targetDir);
+		if (FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(pseudoUp, FVector::UpVector))) < 90)
+			rotateToFaceTargetDir = 1;
+		else
+			rotateToFaceTargetDir = -1;
+	}
 }
 void AMutationChar::FellOutOfWorld(const class UDamageType& dmgType)
 {

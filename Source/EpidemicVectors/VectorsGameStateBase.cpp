@@ -15,7 +15,7 @@ void AVectorsGameStateBase::BeginPlay()
 	for (TActorIterator<AMutationChar> itr(world, AMutationChar::StaticClass()); itr; ++itr)
 	{
 		AMutationChar* mutation = *itr;
-		if (mutation != NULL) {
+		if (mutation != nullptr) {
 			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Blue, "Mutation found name: " + mutation->GetName());
 
 			mutations.Add(mutation);

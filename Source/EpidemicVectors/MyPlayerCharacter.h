@@ -20,7 +20,6 @@
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
 
-
 //#include "Runtime/Engine/Classes/Components/StaticMeshComponent.h"
 #include "AnimComm.h"
 #include "Perception/PawnSensingComponent.h"
@@ -126,6 +125,12 @@ public:
 	UAnimComm * myAnimBP;
 	bool lethal;
 	FTimerHandle timerHandle;
+	FTimerHandle grndPchTimerHandle;
+	int ripple_i;
+	FRotator rippleRot;
+	FVector rippleStartPosition;
+	FVector rippleForwardVector;
+
 	PlayerStates mystate;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite) FVector2D targetScreenPos;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite) FColor crossHairColor;
@@ -241,6 +246,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FName hookSocket = "vanq_LeftForeArm";
 	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float back2idleTime = 0.5f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float playerTelegraph = 0.1f;
+	UPROPERTY(EditAnywhere, Category = Combat) UClass* WaveRippleBP;
+	UPROPERTY(EditAnywhere, Category = Combat) float grndPunchRippleTime = 0.25f;
+	UPROPERTY(EditAnywhere, Category = Combat) int grndPunchRipples = 5;
+	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRpplForthOffset = 100.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRppOffsetY = 100.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRppRangeY = 200.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRppHeightCast = 500.0f;
 
 	//input buttons
 	UPROPERTY(EditAnywhere, Category = Combat) FKey atk1Key;//square
@@ -273,7 +285,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_jCam;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey vertical_jCam;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey lookInCharDir_j;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey quickTurn_j;
+	UPROPERTY(EditAnywhere, Category = Combat) FKey quickTurn_j;	
 	//knockdown animations
 	UPROPERTY(EditAnywhere, Category = Combat) FAtkNode prepSuperHitL;
 	UPROPERTY(EditAnywhere, Category = Combat) FAtkNode superHitL;
@@ -377,6 +389,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = AI) void ReportHookConnected();
 	UFUNCTION(BlueprintCallable, Category = AI) void ReportGrabThrow();
+	UFUNCTION(BlueprintCallable, Category = Combat) void ReportGroundPunchHit();
 	UPROPERTY(BlueprintReadWrite) int target_i = -1;
 
 private:
@@ -482,6 +495,7 @@ private:
 	void StopLand();
 	void GrabThrow();
 	void LockTarget(bool active);
+	void GroundPunchRipple();
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }

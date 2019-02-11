@@ -11,6 +11,8 @@
 #include "GameFramework/Controller.h"
 #include "Runtime/Engine/Classes/Engine/TargetPoint.h"
 #include "Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
+#include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
+//#include "Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 
@@ -120,6 +122,7 @@ public:
 	UFUNCTION(BlueprintCallable) void NextPatrolPoint();
 	UFUNCTION(BlueprintCallable) void ArrivedAtGoal();
 	UFUNCTION(BlueprintCallable) void MutationFight(float DeltaTime);
+	UFUNCTION(BlueprintCallable) void StartPatrol();
 
 	/*A Behavior Tree reference*/
 	UPROPERTY(EditDefaultsOnly)
@@ -177,6 +180,7 @@ public:
 	int patrolDir = 1;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite) int mutation_i = -1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = VFX) UParticleSystem* damagehitVFX;
 	float distToTarget;
 	AMyPlayerCharacter* myTarget;
 	FVector targetPos;
@@ -237,7 +241,7 @@ public:
 	void Stabilize();
 	void GrabThrow(FVector GrabThrowDir, float GrabThrowSpeed);
 	void Grappled();
-	//void ResetSpeeds();
+	UFUNCTION(BlueprintCallable) void MyDamage(float DamagePwr, FVector AlgozPos, bool KD, float RecoilForce, float DmgTime, FVector hitPoint, FVector hitNormal);
 
 private:
 	bool kdrecovering = false;
@@ -275,8 +279,7 @@ private:
 	void CombatAction(int near_i, float DeltaTime);
 
 	void NextComboHit();
-	void CancelAttack();
-	void MyDamage(float DamagePower, FVector AlgozPos, bool KD, float RecoilForce, float DamageTime);
+	void CancelAttack();	
 	void Death();
 	void DelayedStartKDtakeOff();
 	void DelayedStartKDFlight();
