@@ -1497,6 +1497,11 @@ void AMyPlayerCharacter::CancelAttack() {
 	world->GetTimerManager().ClearTimer(timerHandle);
 	CancelKnockDownPrepare(true);
 	CancelKnockDownPrepare(false);
+
+	aiming = false;
+	targetScreenPos.X = -1.0f;
+	targetScreenPos.Y = -1.0f;
+	target_i = -1;
 	
 	//mainThrustVFX->Deactivate();
 	//turboThrustVFX->Deactivate();
@@ -2121,6 +2126,7 @@ void AMyPlayerCharacter::HookOverlap(UPrimitiveComponent* OverlappedComponent, A
 void AMyPlayerCharacter::MyDamage(float DamagePower, bool KD, bool Spiral) {
 	HookFail();
 	CancelAttack();
+	landing = false;
 	//stop drifting
 	myCharMove->StopMovementImmediately();
 	myCharMove->StopActiveMovement();
