@@ -255,14 +255,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRppHeightCast = 500.0f;
 
 	//input buttons
-	UPROPERTY(EditAnywhere, Category = Combat) FKey atk1Key;//square
-	UPROPERTY(EditAnywhere, Category = Combat) FKey atk2Key;//triangle
-	UPROPERTY(EditAnywhere, Category = Combat) FKey hookKey;//right trigger
-	UPROPERTY(EditAnywhere, Category = Combat) FKey jumpKey;//circle
-	UPROPERTY(EditAnywhere, Category = Combat) FKey dashKey;//cross
-	UPROPERTY(EditAnywhere, Category = Combat) FKey shieldKey;//right bumper
-	UPROPERTY(EditAnywhere, Category = Combat) FKey grabKey;//left trigger
-	UPROPERTY(EditAnywhere, Category = Combat) FKey targetLockKey;//left bumper
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey atk1Key;//square
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey atk2Key;//triangle
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey hookKey;//right trigger
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey jumpKey;//circle
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey dashKey;//cross
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey shieldKey;//right bumper
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey grabKey;//left trigger
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey targetLockKey;//left bumper
 	//input axis
 	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_L;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_R;
@@ -272,14 +272,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) FKey verticalCam;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey quickTurnKey;
 	//joystick
-	UPROPERTY(EditAnywhere, Category = Combat) FKey atk1_jKey;//square
-	UPROPERTY(EditAnywhere, Category = Combat) FKey atk2_jKey;//triangle
-	UPROPERTY(EditAnywhere, Category = Combat) FKey hook_jKey;//right trigger
-	UPROPERTY(EditAnywhere, Category = Combat) FKey jump_jKey;//circle
-	UPROPERTY(EditAnywhere, Category = Combat) FKey dash_jKey;//cross
-	UPROPERTY(EditAnywhere, Category = Combat) FKey shield_jKey;//right bumper
-	UPROPERTY(EditAnywhere, Category = Combat) FKey grab_jKey;//left trigger
-	UPROPERTY(EditAnywhere, Category = Combat) FKey targetLock_jKey;//left bumper
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey atk1_jKey;//square
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey atk2_jKey;//triangle
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey hook_jKey;//right trigger
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey jump_jKey;//circle
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey dash_jKey;//cross
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey shield_jKey;//right bumper
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey grab_jKey;//left trigger
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey targetLock_jKey;//left bumper
 	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_j;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey vertical_j;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_jCam;

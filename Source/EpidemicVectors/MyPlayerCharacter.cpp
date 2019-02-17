@@ -763,7 +763,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				atkPushTime = spinRisePushTime;
 				attackPower = attackNormalPower;
 				myAnimBP->damageIndex = 32;
-				mystate = attacking;
+				mystate = kdGround;
 				UGameplayStatics::PlaySoundAtLocation(world, seesawRiseSFX, GetActorLocation(), SFXvolume);
 				advanceAtk = 0.0f;
 
@@ -1499,9 +1499,9 @@ void AMyPlayerCharacter::CancelAttack() {
 	CancelKnockDownPrepare(false);
 
 	aiming = false;
-	targetScreenPos.X = -1.0f;
-	targetScreenPos.Y = -1.0f;
-	target_i = -1;
+	//targetScreenPos.X = -1.0f;
+	//targetScreenPos.Y = -1.0f;
+	//target_i = -1;
 	
 	//mainThrustVFX->Deactivate();
 	//turboThrustVFX->Deactivate();
@@ -1565,7 +1565,7 @@ void AMyPlayerCharacter::ResetAttacks(){
 }
 
 void AMyPlayerCharacter::Listen4Dash() {
-	if (!dashing && interactionLevel >= 2 && (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey))) {
+	if (!dashing && interactionLevel >= 3 && (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey))) {
 		dashDesire = true;
 		dashStart = mytime;
 		if(mystate == attacking)
@@ -1657,22 +1657,22 @@ void AMyPlayerCharacter::Listen4Look(){
 	}
 }
 void AMyPlayerCharacter::Listen4Attack(){
-	if (interactionLevel >= 3 && (player->WasInputKeyJustPressed(atk1Key) || player->WasInputKeyJustPressed(atk1_jKey)))
+	if (interactionLevel >= 4 && (player->WasInputKeyJustPressed(atk1Key) || player->WasInputKeyJustPressed(atk1_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("pressed atk1 key..."));
 		Attack1Press();
 	}
-	if (interactionLevel >= 3 && (player->WasInputKeyJustReleased(atk1Key) || player->WasInputKeyJustReleased(atk1_jKey)))
+	if (interactionLevel >= 4 && (player->WasInputKeyJustReleased(atk1Key) || player->WasInputKeyJustReleased(atk1_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("released atk1 key..."));
 		Attack1Release();
 	}
-	if (interactionLevel >= 3 && (player->WasInputKeyJustPressed(atk2Key) || player->WasInputKeyJustPressed(atk2_jKey)))
+	if (interactionLevel >= 4 && (player->WasInputKeyJustPressed(atk2Key) || player->WasInputKeyJustPressed(atk2_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("pressed atk2 key..."));
 		Attack2Press();
 	}
-	if (interactionLevel >=3 && (player->WasInputKeyJustReleased(atk2Key) || player->WasInputKeyJustReleased(atk2_jKey)))
+	if (interactionLevel >=4 && (player->WasInputKeyJustReleased(atk2Key) || player->WasInputKeyJustReleased(atk2_jKey)))
 	{
 		//GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Yellow, TEXT("released atk2 key..."));
 		Attack2Release();
@@ -1786,7 +1786,7 @@ void AMyPlayerCharacter::Advance(){
 }
 void AMyPlayerCharacter::Listen4Grab() {
 	//grab
-	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && !mutationGrabbed && interactionLevel >=3) {
+	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && !mutationGrabbed && interactionLevel >=5) {
 		mystate = grabbing;
 		ResetAnims();
 
@@ -1812,7 +1812,7 @@ void AMyPlayerCharacter::Listen4Grab() {
 		GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedMutationGrabToIdle, grabTime, false);
 	}
 	//grab aim
-	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && mutationGrabbed && interactionLevel >= 3) {
+	if ((player->WasInputKeyJustPressed(grabKey) || player->WasInputKeyJustPressed(grab_jKey)) && mutationGrabbed && interactionLevel >= 5) {
 		//play prepare grabThrow animation
 		myAnimBP->attackIndex = 100;
 
@@ -1821,7 +1821,7 @@ void AMyPlayerCharacter::Listen4Grab() {
 		UGameplayStatics::SetGlobalTimeDilation(world, timeDilation);
 	}
 	//grab aiming
-	if ((player->IsInputKeyDown(grabKey) || player->IsInputKeyDown(grab_jKey)) && mutationGrabbed && interactionLevel >= 3) {
+	if ((player->IsInputKeyDown(grabKey) || player->IsInputKeyDown(grab_jKey)) && mutationGrabbed && interactionLevel >= 5) {
 		//aiming = true;
 		myLoc = GetActorLocation();
 		forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
@@ -1853,7 +1853,7 @@ void AMyPlayerCharacter::Listen4Grab() {
 	}
 }
 void AMyPlayerCharacter::Listen4Hook() {
-	if (interactionLevel >= 3 && !landing && !mutationGrabbed && (player->WasInputKeyJustPressed(hookKey) || player->WasInputKeyJustPressed(hook_jKey))) {
+	if (interactionLevel >= 2 && !landing && !mutationGrabbed && (player->WasInputKeyJustPressed(hookKey) || player->WasInputKeyJustPressed(hook_jKey))) {
 		UGameplayStatics::PlaySoundAtLocation(world, grapplePrepareSFX, GetActorLocation(), SFXvolume);
 		//freeze time
 		timeDilation = aimTimeDilation;
@@ -1869,7 +1869,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 		myAnimBP->attackIndex = -1;
 	}
 	//grapple aim
-	if (interactionLevel >=3 && aiming && !mutationGrabbed && (player->IsInputKeyDown(hookKey) || player->IsInputKeyDown(hook_jKey))) {
+	if (interactionLevel >=2 && aiming && !mutationGrabbed && (player->IsInputKeyDown(hookKey) || player->IsInputKeyDown(hook_jKey))) {
 		//myLoc = GetActorLocation();
 		myLoc = FollowCamera->GetComponentLocation();
 		forthVec = FRotationMatrix(Controller->GetControlRotation()).GetUnitAxis(EAxis::X);
@@ -1927,7 +1927,7 @@ void AMyPlayerCharacter::Listen4Hook() {
 		}	
 	}
 	//throw grappling hook
-	if (interactionLevel >= 3 && aiming && !mutationGrabbed && (player->WasInputKeyJustReleased(hookKey) || player->WasInputKeyJustReleased(hook_jKey))) {
+	if (interactionLevel >= 2 && aiming && !mutationGrabbed && (player->WasInputKeyJustReleased(hookKey) || player->WasInputKeyJustReleased(hook_jKey))) {
 		aiming = false;
 		if (hookedActor) {
 			hookReturning = false;

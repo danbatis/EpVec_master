@@ -230,8 +230,9 @@ void AMutationChar::Tick(float DeltaTime)
 			float hitgroundTime = 0.5f;
 			GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::DelayedKDRise, hitgroundTime, false);
 		}
-	}	
-	myAnimBP->inAir = inAir;
+	}
+	if(mystate != MutationStates::grabbed)
+		myAnimBP->inAir = inAir;
 	/*
 	if (inAir) {
 		UE_LOG(LogTemp, Warning, TEXT("mutation falling"));
@@ -564,6 +565,7 @@ void AMutationChar::OnHearNoise(APawn* PawnInstigator, const FVector& Location, 
 			}
 			else {
 				//Updates our target based on what we've heard.
+				DecideWhichSideFacesPlayer();
 				timeHeard = mytime;
 				targetPos = PawnInstigator->GetActorLocation();
 				targetInAir = myTarget->inAir;
@@ -622,6 +624,7 @@ void AMutationChar::OnSeenTarget(APawn* PawnInstigator)
 			}
 			else {
 				//Updates our target based on what we've heard.
+				DecideWhichSideFacesPlayer();
 				targetVisible = true;
 				timeSeen = mytime;
 				targetPos = PawnInstigator->GetActorLocation();

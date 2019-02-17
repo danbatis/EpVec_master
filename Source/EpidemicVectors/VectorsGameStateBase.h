@@ -26,5 +26,7 @@ public:
 	UWorld* world;
 	//to store all mutations in scene
 	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<AMutationChar*> mutations;
-	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) bool motionComicLock;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) bool grabTeacherUnlock;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) int checkpointID;
 };
