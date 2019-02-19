@@ -179,6 +179,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = Movement) float normalAcel;
 	UPROPERTY(EditAnywhere, Category = Movement) float dashAcel;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = tuto) FText tutoA;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = tuto) FText tutoB;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = tuto) FText tutoC;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = tuto) UTexture2D* tutoImageA;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = tuto) UTexture2D* tutoImageB;
+
 	UPROPERTY(EditAnywhere, Category = Combat) float throwPower;
 	UPROPERTY(EditAnywhere, Category = Combat) float throwOffsetHeight = 200.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float throwUpOffset = 200.0f;
@@ -264,10 +270,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey grabKey;//left trigger
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey targetLockKey;//left bumper
 	//input axis
-	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_L;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_R;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey vertical_Up;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey vertical_Down;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey horizontal_L;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey horizontal_R;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey vertical_Up;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey vertical_Down;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontalCam;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey verticalCam;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey quickTurnKey;
@@ -280,12 +286,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey shield_jKey;//right bumper
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey grab_jKey;//left trigger
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey targetLock_jKey;//left bumper
-	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_j;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey vertical_j;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey horizontal_j;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey vertical_j;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_jCam;
 	UPROPERTY(EditAnywhere, Category = Combat) FKey vertical_jCam;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey lookInCharDir_j;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey quickTurn_j;	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey lookInCharDir_j;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey quickTurn_j;
 	//knockdown animations
 	UPROPERTY(EditAnywhere, Category = Combat) FAtkNode prepSuperHitL;
 	UPROPERTY(EditAnywhere, Category = Combat) FAtkNode superHitL;
