@@ -274,9 +274,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey horizontal_R;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey vertical_Up;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey vertical_Down;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontalCam;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey verticalCam;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey quickTurnKey;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey horizontalCam;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey verticalCam;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey quickTurnKey;
 	//joystick
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey atk1_jKey;//square
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey atk2_jKey;//triangle
@@ -288,8 +288,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey targetLock_jKey;//left bumper
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey horizontal_j;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey vertical_j;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey horizontal_jCam;
-	UPROPERTY(EditAnywhere, Category = Combat) FKey vertical_jCam;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey horizontal_jCam;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey vertical_jCam;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey lookInCharDir_j;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey quickTurn_j;
 	//knockdown animations
