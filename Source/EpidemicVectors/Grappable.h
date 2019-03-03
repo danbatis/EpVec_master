@@ -15,6 +15,6 @@ public:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) UStaticMeshComponent* myMesh;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) UStaticMeshComponent* myMesh;	
 	int grappable_i = -1;
 };

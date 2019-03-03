@@ -157,6 +157,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) float follwdTgtStep = 500.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FName follwdTgtStatus;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) int interactionLevel = 10;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) int skillLevel = -1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) bool ready4newSkill;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) bool grabThrowLearned;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) bool ready2LearnGrabThrow;
 	UPROPERTY(EditAnywhere, Category = Combat)float reorientTime;
 	UPROPERTY(EditAnywhere, Category = Combat)float msgTime;
 	UPROPERTY(EditAnywhere, Category = Combat)float holdTimeMin;

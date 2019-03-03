@@ -28,7 +28,7 @@ AMyPlayerCharacter::AMyPlayerCharacter()
 	//collisionCapsule->AttachToComponent(RootComponent);
 
 	// Set as root component
-	//RootComponent = GetCapsuleComponent();
+	RootComponent = GetCapsuleComponent();
 
 	// set our turn rates for input
 	BaseTurnRate = 45.f;
@@ -706,7 +706,19 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	case kdFlight:
 		//check for fast recover, if right before start falling down
 		if (FMath::Abs(myVel.Z) < quickRecoverSpeedTgt) {
-			if (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey)) {
+			if (skillLevel >= 2 && (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey))) {
+				CancelAttack();
+				myAnimBP->damageIndex = 25;
+				mystate = kdGround;
+				myCharMove->StopMovementImmediately();
+				myCharMove->StopActiveMovement();
+				myCharMove->MovementMode = MOVE_Flying;
+				UGameplayStatics::PlaySoundAtLocation(world, quickRecoverSFX, GetActorLocation(), SFXvolume);
+				world->GetTimerManager().ClearTimer(timerHandle);
+				GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::Relax, quickRecoverTime, false);
+			}
+			if (skillLevel < 2 && (player->IsInputKeyDown(dashKey) || player->IsInputKeyDown(dash_jKey))) {
+				skillLevel = 2;
 				CancelAttack();
 				myAnimBP->damageIndex = 25;
 				mystate = kdGround;
@@ -737,7 +749,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	case kdRise:
 		if (!arising) {
 			//simple rise, seesaw attack or spin attack
-			if ((player->IsInputKeyDown(atk1Key) && player->WasInputKeyJustPressed(atk2Key)) || (player->IsInputKeyDown(atk1_jKey) && player->WasInputKeyJustPressed(atk2_jKey))) {
+			if ((player->IsInputKeyDown(atk1Key) && player->WasInputKeyJustPressed(hookKey)) || (player->IsInputKeyDown(atk1_jKey) && player->WasInputKeyJustPressed(hook_jKey))) {
 				CancelAttack();
 				arising = true;
 				//spin rise attack
@@ -755,7 +767,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				advanceAtk = 0.0f;
 				GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedAtkRise, spinRiseTime, false);
 			}
-			if (player->WasInputKeyJustReleased(atk1Key) || player->WasInputKeyJustReleased(atk1_jKey)) {
+			if (player->WasInputKeyJustPressed(atk2Key) || player->WasInputKeyJustPressed(atk2_jKey)) {
 				CancelAttack();
 				arising = true;
 				//seesaw attack rise
@@ -769,7 +781,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 
 				GetWorldTimerManager().SetTimer(timerHandle, this, &AMyPlayerCharacter::DelayedSeeSawRise, seesawRisePrepGain*seesawRiseTime, false);
 			}
-			if (player->WasInputKeyJustReleased(atk2Key) || vertIn > 0.0f || player->WasInputKeyJustReleased(atk2_jKey)) {
+			if (vertIn > 0.0f) {
 				CancelAttack();
 				//simple rise
 				arising = true;
@@ -2213,6 +2225,8 @@ void AMyPlayerCharacter::KnockDownFlight() {
 	ResetSpeeds();
 	myAnimBP->damageIndex = 20;
 	mystate = kdFlight;
+	if (skillLevel == 1)
+		ready4newSkill = true;
 }
 void AMyPlayerCharacter::DelayedStabilize() {
 	timeDilation = 1.0f;
@@ -2299,6 +2313,10 @@ void AMyPlayerCharacter::HookConnect() {
 }
 void AMyPlayerCharacter::DelayedKDground() {
 	mystate = kdRise;
+	
+	//ready for the rises tuto
+	if (skillLevel < 5)
+		ready4newSkill = true;
 }
 void AMyPlayerCharacter::DelayedAtkRise() {
 	if(debugInfo)
@@ -2412,6 +2430,8 @@ void AMyPlayerCharacter::GroundPunchRipple(){
 }
 void AMyPlayerCharacter::GrabSuccess() {
 	mutationGrabbed = true;
+	if(!grabThrowLearned)
+		ready2LearnGrabThrow = true;
 	LockTarget(false);
 	UGameplayStatics::PlaySoundAtLocation(world, grabConnectSFX, GetActorLocation(), SFXvolume);
 	if (grabComp)
