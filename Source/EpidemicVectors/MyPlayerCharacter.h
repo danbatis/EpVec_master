@@ -215,7 +215,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) float recoverStaminaDelay = 1.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float recoverStaminaRate = 0.5f;
 	UPROPERTY(EditAnywhere, Category = Combat) float evadeRate = 2.5f;
-	UPROPERTY(EditAnywhere, Category = Combat) float dashForthRate = 0.5f; 
+	UPROPERTY(EditAnywhere, Category = Combat) float dashForthRate = 0.5f;
+	UPROPERTY(EditAnywhere, Category = Combat) float dashCooldownTime = 1.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float attackNormalPower = 10.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float attackKDPower = 20.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float spinRisePushForce = 1.0f;
@@ -376,6 +377,7 @@ public:
 	FVector forthVec;
 	FVector rightVec;
 	FVector myVel;
+	
 	FVector damageDir;
 
 	float grabForth;
@@ -425,6 +427,8 @@ private:
 	FVector targetLoc;
 	bool dashing;
 	bool dashDesire;
+	float dashCooldownTimer;
+	float dashGain4Anim;
 	bool arising;
 	bool waiting4Hook;	
 	bool waiting4HookConn;

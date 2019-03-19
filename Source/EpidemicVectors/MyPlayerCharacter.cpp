@@ -334,14 +334,18 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				}
 			}
 		}
+		dashCooldownTimer = 0.0f;		
 	}
 	else {
 		dashing = false;
 		dashPowerRate = recoverStaminaRate;
 		if (dashStart != 0.0f) {
 			if (debugInfo)
-				GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::Blue, TEXT("just finished dashing!"));
-			ResetSpeeds();
+				GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::Blue, TEXT("just finished dashing1!"));
+			//ResetSpeeds();
+			myCharMove->GravityScale = normalGravity;
+			dashCooldownTimer = dashCooldownTime;
+			
 			startRecoverStamina = mytime;
 			if (inAir)
 				myAnimBP->airdashed = true;
@@ -353,18 +357,42 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		turboThrustVFX->Deactivate();
 		dashLocked = false;
 		dashing = false;
-		ResetSpeeds();
+		//ResetSpeeds();
 		
 		dashPowerRate = recoverStaminaRate;
 		if (dashStart != 0.0f) {
 			if (debugInfo)
 				GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Blue, TEXT("just finished dashing!"));
+			dashCooldownTimer = dashCooldownTime;
+			myCharMove->GravityScale = normalGravity;
 			startRecoverStamina = mytime;
 			if (inAir)
 				myAnimBP->airdashed = true;
 		}
 		dashStart = 0.0f;
 	}
+
+	myVel = GetVelocity();
+		
+	if (lookInCamDir) {
+		//using always the normal speed to normalize, so the dash animation is max out			
+		myAnimBP->speedv = 100.0f*dashGain4Anim*(FVector::DotProduct(myVel, forthVec) / myCharMove->MaxWalkSpeed);
+		myAnimBP->speedh = 100.0f*dashGain4Anim*(FVector::DotProduct(myVel, rightVec) / myCharMove->MaxWalkSpeed);
+	}
+	else {
+		//using always the normal speed to normalize, so the dash animation is max out
+		if (dashing) {
+			myAnimBP->speedv = 100.0f*dashGain4Anim*(FVector::DotProduct(myVel, forthVec) / myCharMove->MaxWalkSpeed);
+			myAnimBP->speedh = 100.0f*dashGain4Anim*(FVector::DotProduct(myVel, rightVec) / myCharMove->MaxWalkSpeed);
+		}
+		else {
+			myAnimBP->speedv = 100.0f*dashGain4Anim*(FVector::VectorPlaneProject(myVel, FVector::UpVector).Size() / myCharMove->MaxWalkSpeed);
+			myAnimBP->speedh = 0.0f;
+		}
+	}	
+
+	if(dashCooldownTimer > 0)
+		dashCooldownTimer -= DeltaTime;
 
 	if (dashing) {
 		dashPower -= dashPowerRate * DeltaTime;
@@ -374,19 +402,22 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		}
 		myCharMove->MaxWalkSpeed = dashSpeed;
 		myCharMove->MaxAcceleration = dashAcel;
+		dashGain4Anim = 1.0f;
 		//if(!lookInCamDir)
 		//	myCharMove->bOrientRotationToMovement = false;
 		myCharMove->AirControl = dashAirCtrl;
 	}
-	else {	
-		myCharMove->MaxWalkSpeed = normalSpeed;
-		myCharMove->MaxAcceleration = normalAcel;
+	else{	
+		myCharMove->MaxWalkSpeed = (dashCooldownTimer/dashCooldownTime)*(dashSpeed-normalSpeed) + normalSpeed;
+		myCharMove->MaxAcceleration = (dashCooldownTimer / dashCooldownTime)*(dashAcel - normalAcel) + normalAcel;
+		dashGain4Anim = (dashCooldownTimer / dashCooldownTime)*(1.0f - dashAnimGain) + dashAnimGain;
 		//myCharMove->bOrientRotationToMovement = true;
 		myCharMove->AirControl = normalAirCtrl;
 		if (mystate == evading || (dashDirH==0.0f && dashDirV == 1.0f)) {
 			mystate = idle;
 			//idleTimer = back2idleTime;
-			myCharMove->Velocity *= (normalSpeed / dashSpeed);
+			if(inAir)
+				myCharMove->Velocity *= (normalSpeed / dashSpeed);
 			dashDirH = 0.0f;
 			dashDirV = 0.0f;
 		}
@@ -422,25 +453,6 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	}
 	myAnimBP->idleBlend = 1.0f - idleTimer / back2idleTime;
 	*/
-
-	myVel = GetVelocity();
-	
-	if (lookInCamDir) {
-		//using always the normal speed to normalize, so the dash animation is max out			
-		myAnimBP->speedv = 100.0f*(FVector::DotProduct(myVel, forthVec) / (dashAnimGain*normalSpeed));
-		myAnimBP->speedh = 100.0f*(FVector::DotProduct(myVel, rightVec) / (dashAnimGain*normalSpeed));
-	}
-	else {
-		//using always the normal speed to normalize, so the dash animation is max out
-		if (dashing) {
-			myAnimBP->speedv = 100.0f*(FVector::DotProduct(myVel, forthVec) / (dashAnimGain*normalSpeed));
-			myAnimBP->speedh = 100.0f*(FVector::DotProduct(myVel, rightVec) / (dashAnimGain*normalSpeed));
-		}
-		else {
-			myAnimBP->speedv = 100.0f*(FVector::VectorPlaneProject(myVel, FVector::UpVector).Size() / (dashAnimGain*normalSpeed));
-			myAnimBP->speedh = 0.0f;
-		}
-	}
 
 	//UE_LOG(LogTemp, Warning, TEXT("player state: %d | attackChain size: %d"), (int)mystate, attackChain.Num());
 
@@ -705,6 +717,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		break;
 	case kdFlight:
 		//check for fast recover, if right before start falling down
+		myVel = GetVelocity();
 		if (FMath::Abs(myVel.Z) < quickRecoverSpeedTgt) {
 			if (skillLevel >= 2 && (player->WasInputKeyJustPressed(dashKey) || player->WasInputKeyJustPressed(dash_jKey))) {
 				CancelAttack();
@@ -1542,7 +1555,7 @@ void AMyPlayerCharacter::CancelAttack() {
 	Cast<UPrimitiveComponent>(hookComp)->SetGenerateOverlapEvents(false);
 
 	myMesh->Stop();
-	ResetAnims();
+	ResetAnims();	
 }
 void AMyPlayerCharacter::ResetAnims(){
 	//myMesh->SnapshotPose(lastPose);
@@ -1585,7 +1598,7 @@ void AMyPlayerCharacter::Listen4Dash() {
 		landing = false;
 	}
 	if (player->WasInputKeyJustReleased(dashKey) || player->WasInputKeyJustReleased(dash_jKey)) {
-		dashDesire = false;
+		dashDesire = false;		
 	}
 }
 void AMyPlayerCharacter::Listen4Move(float DeltaTime){
@@ -1639,12 +1652,14 @@ void AMyPlayerCharacter::Listen4Move(float DeltaTime){
 		MoveForward(vertIn);
 		MoveRight(horIn);
 	}
+	
 	/*
 	//print speeds for animation
 	if (debugInfo) {
-		GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Orange, FString::Printf(TEXT("[player anim] speedv: %f speedh: %f"), myAnimBP->speedv, myAnimBP->speedh));
+		GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Orange, FString::Printf(TEXT("[player anim] speedv: %f speedh: %f move speed: %f vel: %f ratio: %f"), myAnimBP->speedv, myAnimBP->speedh, myCharMove->MaxWalkSpeed, myVel.Size(), myVel.Size()/myCharMove->MaxWalkSpeed));
 	}
 	*/
+	
 }
 void AMyPlayerCharacter::Listen4Look(){
 	Turn(player->GetInputAnalogKeyState(horizontalCam) + joyTurnGain * player->GetInputAnalogKeyState(horizontal_jCam));
@@ -2485,6 +2500,8 @@ void AMyPlayerCharacter::StopLand() {
 	landing = false;
 }
 void AMyPlayerCharacter::ResetSpeeds() {
+	dashCooldownTimer = 0.0f;
+	dashGain4Anim = dashAnimGain;
 	flying = false;
 	myCharMove->MovementMode = MOVE_Walking;
 	myCharMove->MaxWalkSpeed = normalSpeed;
