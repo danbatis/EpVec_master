@@ -218,6 +218,15 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 
 	if (debugInfo)
 		GEngine->AddOnScreenDebugMessage(-1, 0.01f, FColor::Blue, FString::Printf(TEXT("[playerState: %d"), mystate));
+	
+	if(!simChainCable) {
+		if (!_previousCableWorldLocation.IsZero())
+		{
+			hookChain->ApplyWorldOffset(hookChain->GetComponentLocation() - _previousCableWorldLocation, false);
+		}
+
+		_previousCableWorldLocation = hookChain->GetComponentLocation();
+	}
 
 	mytime += DeltaTime;
 	if(interactionLevel >= 1){
@@ -312,6 +321,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 			dashDirH = 0.0f;
 			dashDirV = 1.0f;
 			turboThrustVFX->Activate();
+			mainThrustVFX->Activate();
 		}
 		else{
 			if(!dashLocked){
@@ -330,7 +340,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 					dashPowerRate = evadeRate;
 					dashDirV = vertIn;
 					dashDirH = horIn;
-					turboThrustVFX->Activate();
+					//turboThrustVFX->Activate();
 				}
 			}
 		}
@@ -338,6 +348,8 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	}
 	else {
 		dashing = false;
+		turboThrustVFX->Deactivate();
+		mainThrustVFX->Deactivate();
 		dashPowerRate = recoverStaminaRate;
 		if (dashStart != 0.0f) {
 			if (debugInfo)
@@ -355,6 +367,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 	if(!dashDesire && mystate != evading && dashStart != 0.0f) {	
 		//dash button released, stop turboForth
 		turboThrustVFX->Deactivate();
+		mainThrustVFX->Deactivate();
 		dashLocked = false;
 		dashing = false;
 		//ResetSpeeds();
@@ -398,6 +411,8 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		dashPower -= dashPowerRate * DeltaTime;
 		if (dashPower <= 0) {
 			dashing = false;
+			turboThrustVFX->Deactivate();
+			mainThrustVFX->Deactivate();
 			dashPowerRate = recoverStaminaRate;
 		}
 		myCharMove->MaxWalkSpeed = dashSpeed;
@@ -630,6 +645,10 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				hookComp->AttachToComponent(myMesh, FAttachmentTransformRules::KeepRelativeTransform, hookSocket);
 				hookComp->SetRelativeLocation(hookRelPos);
 				hookComp->SetRelativeRotation(hookRelRot);
+				//deactivate chain
+				hookChain->bEnableStiffness = true;
+				//hookChain->Deactivate();
+				simChainCable = false;				
 
 				//release mutation and set it to be dizzy
 				AMutationChar* maybeMutation;
@@ -686,7 +705,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				//myCharMove->Velocity = forthVec * throwPower;
 				myCharMove->AirControl = 0.0f;
 				
-				DrawDebugLine(world, myMesh->GetSocketLocation(hookSocket), hookPos, FColor::Blue, true, -1, 0, 5.0);
+				//DrawDebugLine(world, myMesh->GetSocketLocation(hookSocket), hookPos, FColor::Blue, true, -1, 0, 5.0);
 				//DrawDebugSphere(world, hookPos, 10.0f, 20, FColor(255, 0, 0), true, -1, 0, 2);
 				//DrawDebugSphere(world, myMesh->GetSocketLocation(hookSocket), 10.0f, 20, FColor(0, 255, 0), true, -1, 0, 2);
 			}
@@ -825,7 +844,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 				HookFail();
 		}
 		hookComp->SetWorldLocation(hookPos);
-		DrawDebugLine(world, myLoc, hookPos, FColor::Blue, true, 0.01f, 0, 5.0);
+		//DrawDebugLine(world, myLoc, hookPos, FColor::Blue, true, 0.01f, 0, 5.0);
 		Listen4Look();
 		break;
 	}
@@ -1018,6 +1037,10 @@ void AMyPlayerCharacter::ReportFinishHookThrow() {
 		waiting4Hook = false;
 		GEngine->AddOnScreenDebugMessage(-1, msgTime, FColor::Green, FString::Printf(TEXT("throwing hook")));
 		//send hook flying in grappleTarget direction
+		//activate chain
+		hookChain->Activate();
+		simChainCable = true;
+		hookChain->bEnableStiffness = false;
 		//parent hook to the world
 		hookComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 		hookPos = hookComp->GetComponentLocation();
@@ -1188,13 +1211,7 @@ void AMyPlayerCharacter::MoveForward(float Value)
 	{
 		if(lookInCamDir)
 			Look2Dir(forthVec);
-		AddMovementInput(forthVec, Value);
-
-		if(Value > 0.0f)
-			mainThrustVFX->Activate();
-		else
-			mainThrustVFX->Deactivate();
-		//myCharMove->Velocity = forthVec * Value * myspeed;
+		AddMovementInput(forthVec, Value);		
 	}
 }
 
@@ -1651,6 +1668,14 @@ void AMyPlayerCharacter::Listen4Move(float DeltaTime){
 	else{
 		MoveForward(vertIn);
 		MoveRight(horIn);
+
+		//jet effects
+		jetBackUp->SetVisibility(vertIn > 0.0f);
+		jetBackLow->SetVisibility(vertIn > 0.0f);
+		jetBackL->SetVisibility(horIn > 0.0f);
+		jetBackR->SetVisibility(horIn < 0.0f);
+		jetLegL->SetVisibility(vertIn < 0.0f || horIn > 0.0f);
+		jetLegR->SetVisibility(vertIn < 0.0f || horIn < 0.0f);		
 	}
 	
 	/*
@@ -2299,7 +2324,11 @@ void AMyPlayerCharacter::HookFail(){
 	Cast<UPrimitiveComponent>(hookComp)->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 	Cast<UPrimitiveComponent>(hookComp)->SetPhysicsLinearVelocity(FVector::ZeroVector);
 	hookComp->AttachToComponent(myMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, hookSocket);
-
+	//deactivate chain
+	hookChain->bEnableStiffness = true;
+	//hookChain->Deactivate();
+	simChainCable = false;
+	
 	hookComp->SetRelativeLocation(hookRelPos);
 	hookComp->SetRelativeRotation(hookRelRot);
 

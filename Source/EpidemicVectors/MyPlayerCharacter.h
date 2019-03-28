@@ -16,6 +16,7 @@
 #include "Engine.h"
 #include "MosquitoCharacter.h"
 #include "MutationChar.h"
+#include "CableComponent.h"
 //#include "Runtime/Engine/Classes/Engine/World.h"
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
@@ -321,6 +322,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") FName atkTrailSocket2R;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* mainThrustVFX;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UParticleSystemComponent* turboThrustVFX;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") USceneComponent* jetBackL;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") USceneComponent* jetBackR;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") USceneComponent* jetBackUp;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") USceneComponent* jetBackLow;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") USceneComponent* jetLegL;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") USceneComponent* jetLegR;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") UCableComponent* hookChain;
+	bool simChainCable = false;
+	FVector _previousCableWorldLocation;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthL;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthR;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VFX") float trailWidthSuperL;
@@ -511,6 +522,7 @@ private:
 	void GrabThrow();
 	void LockTarget(bool active);
 	void GroundPunchRipple();
+	
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
