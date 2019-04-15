@@ -265,6 +265,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRppOffsetY = 100.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRppRangeY = 200.0f;
 	UPROPERTY(EditAnywhere, Category = Combat) float grndPchRppHeightCast = 500.0f;
+	UPROPERTY(EditAnywhere, Category = Combat) float rippleRotMax = 5.0f;
 
 	//input buttons
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat) FKey atk1Key;//square

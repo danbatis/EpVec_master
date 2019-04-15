@@ -603,6 +603,13 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		Reorient();
 		break;
 	case attacking:
+		jetBackUp->SetVisibility(true);
+		jetBackLow->SetVisibility(true);
+		jetBackL->SetVisibility(false);
+		jetBackR->SetVisibility(false);
+		jetLegL->SetVisibility(false);
+		jetLegR->SetVisibility(false);
+
 		Advance();
 		Listen4Attack();
 		Listen4Look();
@@ -722,6 +729,13 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		Reorient();
 		break;
 	case suffering:
+		jetBackUp->SetVisibility(false);
+		jetBackLow->SetVisibility(false);
+		jetBackL->SetVisibility(false);
+		jetBackR->SetVisibility(false);
+		jetLegL->SetVisibility(false);
+		jetLegR->SetVisibility(false);
+
 		if (recoilValue >= 0.0f) {
 			AddMovementInput(damageDir, recoilValue);
 		}
@@ -729,6 +743,12 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		Reorient();
 		break;
 	case kdTakeOff:
+		jetBackUp->SetVisibility(false);
+		jetBackLow->SetVisibility(false);
+		jetBackL->SetVisibility(false);
+		jetBackR->SetVisibility(false);
+		jetLegL->SetVisibility(false);
+		jetLegR->SetVisibility(false);
 		if (recoilValue >= 0.0f) {
 			AddMovementInput(damageDir + knockDownUpFactor*FVector::UpVector, recoilValue);
 		}
@@ -2447,9 +2467,11 @@ void AMyPlayerCharacter::GroundPunchRipple(){
 				FActorSpawnParameters rippleSpawnInfo;
 				rippleSpawnInfo.Owner = this;
 
+				rippleRot.Add(0.0f,FMath::RandRange(-rippleRotMax, rippleRotMax),0.0f);
 				FTransform rippleTransform;
 				rippleTransform.SetLocation(ripplePosition);
 				rippleTransform.SetRotation(FQuat(rippleRot));
+
 				/*
 				//changing the scale of the transform does not change the scale of the actor
 				float newripsize = (float)((grndPunchRipples - ripple_i + 1.0f) / grndPunchRipples);
@@ -2460,6 +2482,12 @@ void AMyPlayerCharacter::GroundPunchRipple(){
 
 				AActor * newRipple;
 				newRipple = world->SpawnActor<AActor>(WaveRippleBP, rippleTransform, rippleSpawnInfo);
+				//newRipple.flame_i = ripple_i;
+				UIntProperty* intProp = FindField<UIntProperty>(newRipple->GetClass(), "flame_i");
+				if (intProp != NULL)
+				{					
+					intProp->SetPropertyValue_InContainer(newRipple, ripple_i);
+				}
 
 				//changing size after spawn does not work
 				//newRipple->SetActorScale3D(FVector(newripsize, newripsize, newripsize));
