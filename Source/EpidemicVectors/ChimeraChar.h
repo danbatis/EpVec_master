@@ -14,7 +14,8 @@ class EPIDEMICVECTORS_API AChimeraChar : public AMutationChar
 {
 	GENERATED_BODY()
 	
-	
-	
-	
+	void NextComboHit() override;
+	void Death() override;
+public:
+	UPROPERTY(EditAnywhere) UClass* finalComicPlayer;
 };

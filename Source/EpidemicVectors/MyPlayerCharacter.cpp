@@ -342,6 +342,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 					dashDirH = horIn;
 					//turboThrustVFX->Activate();
 				}
+				dashLocked = true;
 			}
 		}
 		dashCooldownTimer = 0.0f;		
@@ -364,7 +365,7 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		}
 		dashStart = 0.0f;
 	}
-	if(!dashDesire && mystate != evading && dashStart != 0.0f) {	
+	if(!dashDesire && mystate != evading) {	
 		//dash button released, stop turboForth
 		turboThrustVFX->Deactivate();
 		mainThrustVFX->Deactivate();
@@ -557,6 +558,8 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 			}
 		}
 	}
+	
+	thrustAudio = 0.0f;
 
 	switch (mystate) {
 	case idle:
@@ -603,8 +606,8 @@ void AMyPlayerCharacter::Tick(float DeltaTime)
 		Reorient();
 		break;
 	case attacking:
-		jetBackUp->SetVisibility(true);
-		jetBackLow->SetVisibility(true);
+		jetBackUp->SetVisibility(false);
+		jetBackLow->SetVisibility(false);
 		jetBackL->SetVisibility(false);
 		jetBackR->SetVisibility(false);
 		jetLegL->SetVisibility(false);
@@ -1695,7 +1698,13 @@ void AMyPlayerCharacter::Listen4Move(float DeltaTime){
 		jetBackL->SetVisibility(horIn > 0.0f);
 		jetBackR->SetVisibility(horIn < 0.0f);
 		jetLegL->SetVisibility(vertIn < 0.0f || horIn > 0.0f);
-		jetLegR->SetVisibility(vertIn < 0.0f || horIn < 0.0f);		
+		jetLegR->SetVisibility(vertIn < 0.0f || horIn < 0.0f);
+
+		//audio
+		if (vertIn != 0.0f || horIn != 0.0f)
+			thrustAudio = FMath::Clamp(myVel.Size() / dashSpeed, 0.1f, 1.0f);
+		else
+			thrustAudio = 0.0f;
 	}
 	
 	/*

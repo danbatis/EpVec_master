@@ -573,7 +573,7 @@ void AMutationChar::OnHearNoise(APawn* PawnInstigator, const FVector& Location, 
 				PawnSensingComp->SetActive(true);
 				PawnSensingComp->SetSensingUpdatesEnabled(true);
 				PawnSensingComp->bSeePawns = true;
-				PawnSensingComp->bHearNoises = true;
+				//PawnSensingComp->bHearNoises = true;
 				mystate = MutationStates::pursuit;
 				currentScanParams = investigateParams;
 				searchTimer = blindPursuitTime;
@@ -633,7 +633,7 @@ void AMutationChar::OnSeenTarget(APawn* PawnInstigator)
 				PawnSensingComp->SetActive(false);
 				PawnSensingComp->SetSensingUpdatesEnabled(false);
 				PawnSensingComp->bSeePawns = false;
-				PawnSensingComp->bHearNoises = false;
+				//PawnSensingComp->bHearNoises = false;
 				mystate = MutationStates::pursuit;
 				currentScanParams = investigateParams;
 				searchTimer = blindPursuitTime;
@@ -686,7 +686,7 @@ bool AMutationChar::CheckRange()
 	PawnSensingComp->SetActive(!inFightRange);
 	PawnSensingComp->SetSensingUpdatesEnabled(!inFightRange);
 	PawnSensingComp->bSeePawns = !inFightRange;
-	PawnSensingComp->bHearNoises = !inFightRange;
+	//PawnSensingComp->bHearNoises = !inFightRange;
 	
 	myCharMove->StopActiveMovement();
 	myController->StopMovement();
@@ -700,7 +700,7 @@ bool AMutationChar::CheckRange()
 			PawnSensingComp->SetActive(true);
 			PawnSensingComp->SetSensingUpdatesEnabled(true);
 			PawnSensingComp->bSeePawns = true;
-			PawnSensingComp->bHearNoises = true;
+			//PawnSensingComp->bHearNoises = true;
 			return false;
 		}
 		else {
@@ -912,7 +912,7 @@ void AMutationChar::Navigating(float DeltaTime){
 					PawnSensingComp->SetActive(true);
 					PawnSensingComp->SetSensingUpdatesEnabled(true);
 					PawnSensingComp->bSeePawns = true;
-					PawnSensingComp->bHearNoises = true;
+					//PawnSensingComp->bHearNoises = true;
 
 					//when obstructed by another mutation, we consider it is not obstructed
 					AMutationChar * otherMut = Cast<AMutationChar>(hitres.GetActor());
@@ -965,7 +965,7 @@ void AMutationChar::Navigating(float DeltaTime){
 				PawnSensingComp->SetActive(true);
 				PawnSensingComp->SetSensingUpdatesEnabled(true);
 				PawnSensingComp->bSeePawns = true;
-				PawnSensingComp->bHearNoises = true;
+				//PawnSensingComp->bHearNoises = true;
 			}
 		}
 		break;
@@ -1549,6 +1549,7 @@ void AMutationChar::OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 void AMutationChar::Grappled() {
 	thrownByPlayer = false;
 	CancelAttack();
+	myAnimBP->damage = 5;
 	mystate = MutationStates::grabbed;
 }
 void AMutationChar::DelayedFromGrabRecover(){
@@ -1575,6 +1576,9 @@ void AMutationChar::FromGrabRecover() {
 	myCharMove->MaxFlySpeed = normalSpeed;
 	myCharMove->MaxWalkSpeed = normalSpeed;
 	myCharMove->MaxAcceleration = normalAcel;
+	
+	myCharMove->MovementMode = MOVE_Flying;
+	flying = true;
 
 	ResetFightAnims();
 	//myCapsuleComp->SetGenerateOverlapEvents(true);
@@ -1593,7 +1597,12 @@ void AMutationChar::OutOfAction() {
 }
 void AMutationChar::FromGrappleRecover(float DizzyTime) {
 	OutOfAction();
-	
+
+	//take its life
+	life -= damagePower;
+	if (life <= 0) {
+		Death();
+	}
 	GetWorldTimerManager().SetTimer(timerHandle, this, &AMutationChar::Stabilize, DizzyTime, false);
 }
 void AMutationChar::SetRagdoll(bool Activation) {

@@ -243,6 +243,13 @@ public:
 	void Grappled();
 	UFUNCTION(BlueprintCallable) void MyDamage(float DamagePwr, FVector AlgozPos, bool KD, float RecoilForce, float DmgTime, FVector hitPoint, FVector hitNormal);
 
+	//to be override in ChimeraChar
+	FMutAtkNode* atkWalker;
+	void ResetFightAnims();
+	void MeleeAttack();
+	virtual void NextComboHit();
+	virtual void Death();
+
 private:
 	bool kdrecovering = false;
 	bool kdTakingOff = false;
@@ -267,20 +274,18 @@ private:
 	void CheckDesperation();
 	bool CheckRange();
 	void LookTo(FVector LookPosition);
-	void ResetFightAnims();
+	
 	void StartLethal();
 	void StopLethal();
 	void Investigate();
-
-	void MeleeAttack();	
+			
 	void SpiralAttack();
 	void Approach();
 	void DashSideways();
 	void CombatAction(int near_i, float DeltaTime);
-
-	void NextComboHit();
+		
 	void CancelAttack();	
-	void Death();
+	
 	void DelayedStartKDtakeOff();
 	void DelayedStartKDFlight();
 	void DelayedStartKDFall();
@@ -296,8 +301,7 @@ private:
 	void CancelEQS();
 
 	FTimerHandle timerHandle;	
-	FMutAtkNode* atkWalker;
-
+	
 	//Damage Detection
 	UFUNCTION() void OnBeginOverlap(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION() void OnEndOverlap(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
